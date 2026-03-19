@@ -7,6 +7,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/', include('users.urls')),
     path('api/services/', include('services.urls')),
+    path('api/charges-fixes/', include('charges_fixes.urls')),
 ]
 
 if settings.DEBUG:
