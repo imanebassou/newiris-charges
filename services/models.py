@@ -6,7 +6,8 @@ class Service(models.Model):
         'users.CustomUser',
         on_delete=models.SET_NULL,
         null=True,
-        blank=True
+        blank=True,
+        related_name='services_responsable'
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
