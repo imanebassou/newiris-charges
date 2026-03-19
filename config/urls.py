@@ -8,6 +8,7 @@ urlpatterns = [
     path('api/auth/', include('users.urls')),
     path('api/services/', include('services.urls')),
     path('api/charges-fixes/', include('charges_fixes.urls')),
+    path('api/charges-variables/', include('charges_variables.urls')),
 ]
 
 if settings.DEBUG:
