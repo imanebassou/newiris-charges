@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login'
+import Dashboard from './pages/Dashboard'
 import PrivateRoute from './routes/PrivateRoute'
 
 const App = () => {
@@ -11,9 +12,7 @@ const App = () => {
         path="/dashboard"
         element={
           <PrivateRoute allowedRoles={['admin', 'others']}>
-            <div style={{ padding: '20px', color: '#1a3a6b', fontSize: '20px' }}>
-              Dashboard — en construction
-            </div>
+            <Dashboard />
           </PrivateRoute>
         }
       />
@@ -27,6 +26,11 @@ const App = () => {
           </PrivateRoute>
         }
       />
+      <Route path="/unauthorized" element={
+        <div style={{ padding: '40px', textAlign: 'center', color: '#e84c3d', fontSize: '18px' }}>
+          Accès non autorisé
+        </div>
+      } />
     </Routes>
   )
 }
