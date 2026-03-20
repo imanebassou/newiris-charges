@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard'
 import Users from './pages/Users'
 import Services from './pages/Services'
 import ChargesFixes from './pages/ChargesFixes'
+import ChargesVariables from './pages/ChargesVariables'
 import PrivateRoute from './routes/PrivateRoute'
 
 const App = () => {
@@ -40,6 +41,14 @@ const App = () => {
         element={
           <PrivateRoute allowedRoles={['admin']}>
             <ChargesFixes />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/charges-variables"
+        element={
+          <PrivateRoute allowedRoles={['admin']}>
+            <ChargesVariables />
           </PrivateRoute>
         }
       />
