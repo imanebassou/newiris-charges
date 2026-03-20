@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import Users from './pages/Users'
 import PrivateRoute from './routes/PrivateRoute'
 
 const App = () => {
@@ -13,6 +14,14 @@ const App = () => {
         element={
           <PrivateRoute allowedRoles={['admin', 'others']}>
             <Dashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/users"
+        element={
+          <PrivateRoute allowedRoles={['admin']}>
+            <Users />
           </PrivateRoute>
         }
       />
