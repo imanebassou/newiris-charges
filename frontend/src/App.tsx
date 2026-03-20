@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Users from './pages/Users'
+import Services from './pages/Services'
 import PrivateRoute from './routes/PrivateRoute'
 
 const App = () => {
@@ -22,6 +23,14 @@ const App = () => {
         element={
           <PrivateRoute allowedRoles={['admin']}>
             <Users />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/services"
+        element={
+          <PrivateRoute allowedRoles={['admin']}>
+            <Services />
           </PrivateRoute>
         }
       />
