@@ -5,6 +5,7 @@ import Users from './pages/Users'
 import Services from './pages/Services'
 import ChargesFixes from './pages/ChargesFixes'
 import ChargesVariables from './pages/ChargesVariables'
+import AjouteCharges from './pages/AjouteCharges'
 import PrivateRoute from './routes/PrivateRoute'
 
 const App = () => {
@@ -56,9 +57,7 @@ const App = () => {
         path="/ajoute-charges"
         element={
           <PrivateRoute allowedRoles={['technicien']}>
-            <div style={{ padding: '20px', color: '#1a3a6b', fontSize: '20px' }}>
-              Ajoute des charges — en construction
-            </div>
+            <AjouteCharges />
           </PrivateRoute>
         }
       />
