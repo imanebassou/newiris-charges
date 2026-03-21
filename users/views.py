@@ -25,8 +25,13 @@ class LoginView(APIView):
 
 class UserListView(generics.ListCreateAPIView):
     queryset = CustomUser.objects.all()
-    serializer_class = UserSerializer
+    serializer_class = RegisterSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.request.method == 'GET':
+            return UserSerializer
+        return RegisterSerializer
 
 class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = CustomUser.objects.all()
