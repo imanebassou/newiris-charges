@@ -3,6 +3,7 @@ import Layout from '../components/Layout'
 import api from '../api/axios'
 
 const Users = () => {
+    document.title = 'Utilisateurs — Newiris'
   const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)

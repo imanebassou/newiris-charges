@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import api from '../api/axios'
 
 const Login = () => {
+    document.title = 'Connexion — Newiris'
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -45,17 +46,12 @@ const Login = () => {
         border: '1px solid #e8eaed',
       }}>
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{
-            width: '56px', height: '56px',
-            background: '#1a3a6b',
-            borderRadius: '12px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 12px',
-            fontSize: '20px', fontWeight: '700', color: '#fff'
-          }}>NI</div>
-          <h1 style={{ fontSize: '20px', fontWeight: '700', color: '#1a3a6b' }}>
-            Newiris
-          </h1>
+         <img
+  src="/src/assets/newiris_logo.png"
+  alt="Newiris"
+  style={{ width: '120px', objectFit: 'contain', margin: '0 auto 12px' }}
+/>
+          
           <p style={{ fontSize: '13px', color: '#888', marginTop: '4px' }}>
             Gestion des charges
           </p>

@@ -6,6 +6,7 @@ import api from '../api/axios'
 const COLORS = ['#1a3a6b', '#0099cc', '#e84c3d', '#f39c12', '#2ecc71']
 
 const Dashboard = () => {
+    document.title = 'Dashboard — Newiris'
   const [chargesFixesTotal, setChargesFixesTotal] = useState(0)
   const [chargesVariablesTotal, setChargesVariablesTotal] = useState(0)
   const [categoriesData, setCategoriesData] = useState<any[]>([])

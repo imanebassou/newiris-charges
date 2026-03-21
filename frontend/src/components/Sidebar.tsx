@@ -32,16 +32,15 @@ const Sidebar = () => {
     }}>
       <div style={{ padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            width: '36px', height: '36px', background: '#0099cc',
-            borderRadius: '8px', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', fontSize: '13px',
-            fontWeight: '700', color: '#fff', flexShrink: 0,
-          }}>NI</div>
-          <div>
-            <div style={{ color: '#fff', fontSize: '14px', fontWeight: '600' }}>Newiris</div>
-            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px' }}>Gestion des charges</div>
-          </div>
+          <img
+  src="/src/assets/newiris_logo.png"
+  alt="Newiris"
+  style={{ width: '80px', objectFit: 'contain' }}
+/>
+<div>
+  <div style={{ color: '#fff', fontSize: '14px', fontWeight: '600' }}>Newiris</div>
+  <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px' }}>Gestion des charges</div>
+</div>
         </div>
       </div>
 

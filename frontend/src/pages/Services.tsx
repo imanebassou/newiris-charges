@@ -3,6 +3,7 @@ import Layout from '../components/Layout'
 import api from '../api/axios'
 
 const Services = () => {
+    document.title = 'Services — Newiris'
   const [services, setServices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)

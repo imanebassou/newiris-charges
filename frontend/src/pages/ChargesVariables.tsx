@@ -3,6 +3,7 @@ import Layout from '../components/Layout'
 import api from '../api/axios'
 
 const ChargesVariables = () => {
+    document.title = 'Charges variables — Newiris'
   const [charges, setCharges] = useState<any[]>([])
   const [services, setServices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
