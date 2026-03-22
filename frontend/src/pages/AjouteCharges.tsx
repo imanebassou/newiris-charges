@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import api from '../api/axios'
 
@@ -8,12 +8,17 @@ const AjouteCharges = () => {
     sous_categorie: '', montant: '', date: '',
     description: '', statut: 'en_cours'
   })
+  const [services, setServices] = useState<any[]>([])
   const [photo, setPhoto] = useState<File | null>(null)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   document.title = 'Ajoute des charges — Newiris'
+
+  useEffect(() => {
+    api.get('/services/').then(res => setServices(res.data))
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -38,6 +43,7 @@ const AjouteCharges = () => {
       })
 
       setSuccess(true)
+      setError('')
       setForm({
         titre: '', service: '', categorie: '',
         sous_categorie: '', montant: '', date: '',
@@ -112,13 +118,17 @@ const AjouteCharges = () => {
                 <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>
                   Service *
                 </label>
-                <input
+                <select
                   style={inputStyle}
                   value={form.service}
                   onChange={e => setForm({ ...form, service: e.target.value })}
                   required
-                  placeholder="ID du service Ex: 1"
-                />
+                >
+                  <option value="">Sélectionner un service...</option>
+                  {services.map(s => (
+                    <option key={s.id} value={s.id}>{s.nom}</option>
+                  ))}
+                </select>
               </div>
 
               <div>

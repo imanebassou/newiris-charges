@@ -56,7 +56,7 @@ const App = () => {
       <Route
         path="/ajoute-charges"
         element={
-          <PrivateRoute allowedRoles={['technicien']}>
+          <PrivateRoute allowedRoles={['achat']}>
             <AjouteCharges />
           </PrivateRoute>
         }

@@ -21,7 +21,7 @@ const Login = () => {
       const { access, refresh, user } = response.data
       login(user, access, refresh)
       if (user.role === 'admin') navigate('/dashboard')
-      else if (user.role === 'technicien') navigate('/ajoute-charges')
+      else if (user.role === 'achat') navigate('/ajoute-charges')
       else navigate('/dashboard')
     } catch {
       setError('Identifiants incorrects. Veuillez réessayer.')

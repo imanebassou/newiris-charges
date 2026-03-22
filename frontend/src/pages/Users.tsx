@@ -113,8 +113,8 @@ const Users = () => {
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Rôle</label>
                   <select style={inputStyle} value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
                     <option value="admin">Admin</option>
-                    <option value="technicien">Technicien</option>
-                    <option value="others">Others</option>
+<option value="achat">Achat</option>
+<option value="others">Others</option>
                   </select>
                 </div>
                 <div>

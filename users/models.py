@@ -5,7 +5,7 @@ class CustomUser(AbstractUser):
     
     class Role(models.TextChoices):
         ADMIN = 'admin', 'Admin'
-        TECHNICIEN = 'technicien', 'Technicien'
+        ACHAT = 'achat', 'Achat'
         OTHERS = 'others', 'Others'
 
     role = models.CharField(
