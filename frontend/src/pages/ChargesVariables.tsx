@@ -2,12 +2,22 @@ import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import api from '../api/axios'
 
+const categories: { [key: string]: string[] } = {
+  'Véhicule': ['Carburant', 'Maintenance voiture', 'Lavage', 'Vidange'],
+  'Transport': ['Transport', 'Déplacement'],
+  'Charges administratives': ['Frais bancaires', 'Douane'],
+  'Dépenses équipe & bien-être': ['Restauration', 'Soin/visite médicale', 'Activités sportives'],
+  'Entretien & nettoyage': ['Ménage', 'Matériel consommable'],
+}
+
 const ChargesVariables = () => {
-    document.title = 'Charges variables — Newiris'
+  document.title = 'Charges variables — Newiris'
+
   const [charges, setCharges] = useState<any[]>([])
   const [services, setServices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [photo, setPhoto] = useState<File | null>(null)
   const [form, setForm] = useState({
     titre: '', service: '', categorie: '',
     sous_categorie: '', montant: '', date: '',
@@ -34,17 +44,23 @@ const ChargesVariables = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      await api.post('/charges-variables/', {
-        titre: form.titre,
-        service: parseInt(form.service),
-        categorie: form.categorie,
-        sous_categorie: form.sous_categorie,
-        montant: parseFloat(form.montant),
-        date: form.date,
-        description: form.description,
-        statut: form.statut,
+      const formData = new FormData()
+      formData.append('titre', form.titre)
+      formData.append('service', form.service)
+      formData.append('categorie', form.categorie)
+      formData.append('sous_categorie', form.sous_categorie)
+      formData.append('montant', form.montant)
+      formData.append('date', form.date)
+      formData.append('description', form.description)
+      formData.append('statut', form.statut)
+      if (photo) formData.append('photo', photo)
+
+      await api.post('/charges-variables/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       })
+
       setShowForm(false)
+      setPhoto(null)
       setForm({
         titre: '', service: '', categorie: '',
         sous_categorie: '', montant: '', date: '',
@@ -141,11 +157,31 @@ const ChargesVariables = () => {
                 </div>
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Catégorie *</label>
-                  <input style={inputStyle} value={form.categorie} onChange={e => setForm({ ...form, categorie: e.target.value })} required placeholder="Ex: Véhicule" />
+                  <select
+                    style={inputStyle}
+                    value={form.categorie}
+                    onChange={e => setForm({ ...form, categorie: e.target.value, sous_categorie: '' })}
+                    required
+                  >
+                    <option value="">Sélectionner une catégorie...</option>
+                    {Object.keys(categories).map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Sous-catégorie</label>
-                  <input style={inputStyle} value={form.sous_categorie} onChange={e => setForm({ ...form, sous_categorie: e.target.value })} placeholder="Ex: Carburant" />
+                  <select
+                    style={inputStyle}
+                    value={form.sous_categorie}
+                    onChange={e => setForm({ ...form, sous_categorie: e.target.value })}
+                    disabled={!form.categorie}
+                  >
+                    <option value="">Sélectionner une sous-catégorie...</option>
+                    {form.categorie && categories[form.categorie]?.map(sub => (
+                      <option key={sub} value={sub}>{sub}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Montant (DH) *</label>
@@ -164,9 +200,60 @@ const ChargesVariables = () => {
                 </div>
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Description</label>
-                  <input style={inputStyle} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Description optionnelle" />
+                  <input style={inputStyle} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Description de la charge" />
+                </div>
+
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>
+                    Photo (justificatif)
+                  </label>
+                  <label style={{
+                    display: 'flex', alignItems: 'center', gap: '10px',
+                    padding: '12px 16px', border: '2px dashed #e0e0e0',
+                    borderRadius: '8px', cursor: 'pointer',
+                    background: photo ? '#e8f4fb' : '#fafafa',
+                    borderColor: photo ? '#0099cc' : '#e0e0e0',
+                  }}>
+                    <div style={{
+                      width: '36px', height: '36px', borderRadius: '8px',
+                      background: photo ? '#0099cc' : '#e8eaed',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '18px', flexShrink: 0, color: '#fff'
+                    }}>
+                      {photo ? '✓' : '📎'}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '12px', fontWeight: '600', color: photo ? '#0099cc' : '#555' }}>
+                        {photo ? photo.name : 'Cliquer pour ajouter une photo'}
+                      </div>
+                      <div style={{ fontSize: '10px', color: '#aaa', marginTop: '2px' }}>
+                        {photo ? `${(photo.size / 1024).toFixed(1)} KB` : 'JPG, PNG — max 5MB'}
+                      </div>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={e => setPhoto(e.target.files?.[0] || null)}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                  {photo && (
+                    <button
+                      type="button"
+                      onClick={() => setPhoto(null)}
+                      style={{
+                        marginTop: '6px', padding: '3px 10px',
+                        background: '#fdeaea', color: '#c0392b',
+                        border: '1px solid #f5c6c6', borderRadius: '4px',
+                        fontSize: '11px', cursor: 'pointer'
+                      }}
+                    >
+                      Supprimer la photo
+                    </button>
+                  )}
                 </div>
               </div>
+
               <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
                 <button type="submit" style={{
                   padding: '8px 20px', background: '#1a3a6b',
