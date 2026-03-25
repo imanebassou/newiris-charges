@@ -2,8 +2,23 @@ import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import api from '../api/axios'
 
+const categoriesFixes: string[] = [
+  'Loyer',
+  'Électricité',
+  'Eau',
+  'Internet',
+  'Téléphone',
+  'Assurance',
+  'Salaires',
+  'Transport',
+  'Maintenance',
+  'Fournitures bureau',
+  'Autres',
+]
+
 const ChargesFixes = () => {
-    document.title = 'Charges fixes — Newiris'
+  document.title = 'Charges fixes — Newiris'
+
   const [charges, setCharges] = useState<any[]>([])
   const [services, setServices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -126,13 +141,17 @@ const ChargesFixes = () => {
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>
                     Catégorie *
                   </label>
-                  <input
+                  <select
                     style={inputStyle}
                     value={form.categorie}
                     onChange={e => setForm({ ...form, categorie: e.target.value })}
                     required
-                    placeholder="Ex: Véhicule"
-                  />
+                  >
+                    <option value="">Sélectionner une catégorie...</option>
+                    {categoriesFixes.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>

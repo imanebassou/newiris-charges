@@ -44,6 +44,7 @@ const Dashboard = () => {
   })
 
   const filteredVariables = chargesVariables.filter(c => {
+    if (c.statut !== 'traitee') return false
     if (filtreService && c.service !== parseInt(filtreService)) return false
     if (filtreCategorie && c.categorie !== filtreCategorie) return false
     if (filtreMois && !c.date.startsWith(filtreMois)) return false
@@ -89,7 +90,9 @@ const Dashboard = () => {
         <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h1 style={{ fontSize: '18px', fontWeight: '700', color: '#1a3a6b' }}>Tableau de bord</h1>
-            <p style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>Vue globale des charges</p>
+            <p style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>
+              Vue globale des charges — charges variables traitées uniquement
+            </p>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <select style={selectStyle} value={filtreMois} onChange={e => setFiltreMois(e.target.value)}>
@@ -129,7 +132,7 @@ const Dashboard = () => {
                 <div style={{ fontSize: '22px', fontWeight: '700', color: '#1a3a6b' }}>
                   {total.toLocaleString('fr-FR')} DH
                 </div>
-                <div style={{ fontSize: '10px', color: '#aaa', marginTop: '4px' }}>Fixes + Variables</div>
+                <div style={{ fontSize: '10px', color: '#aaa', marginTop: '4px' }}>Fixes + Variables traitées</div>
               </div>
               <div style={{ background: '#fff', borderRadius: '8px', padding: '16px', border: '1px solid #e8eaed', borderTop: '3px solid #0099cc' }}>
                 <div style={{ fontSize: '11px', color: '#888', marginBottom: '6px' }}>Charges fixes</div>
@@ -141,7 +144,7 @@ const Dashboard = () => {
                 </div>
               </div>
               <div style={{ background: '#fff', borderRadius: '8px', padding: '16px', border: '1px solid #e8eaed', borderTop: '3px solid #e84c3d' }}>
-                <div style={{ fontSize: '11px', color: '#888', marginBottom: '6px' }}>Charges variables</div>
+                <div style={{ fontSize: '11px', color: '#888', marginBottom: '6px' }}>Charges variables traitées</div>
                 <div style={{ fontSize: '22px', fontWeight: '700', color: '#e84c3d' }}>
                   {totalVariables.toLocaleString('fr-FR')} DH
                 </div>

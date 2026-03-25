@@ -18,6 +18,7 @@ const ChargesVariables = () => {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [photo, setPhoto] = useState<File | null>(null)
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null)
   const [form, setForm] = useState({
     titre: '', service: '', categorie: '',
     sous_categorie: '', montant: '', date: '',
@@ -97,35 +98,63 @@ const ChargesVariables = () => {
     fontSize: '13px', outline: 'none',
   }
 
-  const totalMontant = charges.reduce((sum, c) => sum + parseFloat(c.montant), 0)
+  const totalMontant = charges
+    .filter(c => c.statut === 'traitee')
+    .reduce((sum, c) => sum + parseFloat(c.montant), 0)
 
   return (
     <Layout>
       <div style={{ padding: '20px' }}>
+
+        {selectedPhoto && (
+          <div
+            onClick={() => setSelectedPhoto(null)}
+            style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(0,0,0,0.75)', zIndex: 1000,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer'
+            }}
+          >
+            <div style={{ position: 'relative' }}>
+              <img
+                src={selectedPhoto}
+                alt="justificatif"
+                style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: '8px' }}
+              />
+              <button
+                onClick={() => setSelectedPhoto(null)}
+                style={{
+                  position: 'absolute', top: '-12px', right: '-12px',
+                  width: '28px', height: '28px', borderRadius: '50%',
+                  background: '#e84c3d', color: '#fff', border: 'none',
+                  fontSize: '14px', cursor: 'pointer', fontWeight: '700'
+                }}
+              >✕</button>
+            </div>
+          </div>
+        )}
+
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div>
             <h1 style={{ fontSize: '18px', fontWeight: '700', color: '#1a3a6b' }}>Charges variables</h1>
             <p style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>Gestion des charges variables</p>
           </div>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            style={{
-              padding: '8px 16px', background: '#0099cc',
-              color: '#fff', border: 'none', borderRadius: '6px',
-              fontSize: '12px', cursor: 'pointer', fontWeight: '600'
-            }}
-          >
+          <button onClick={() => setShowForm(!showForm)} style={{
+            padding: '8px 16px', background: '#0099cc',
+            color: '#fff', border: 'none', borderRadius: '6px',
+            fontSize: '12px', cursor: 'pointer', fontWeight: '600'
+          }}>
             + Ajouter charge variable
           </button>
         </div>
 
         <div style={{
-          background: '#fff', borderRadius: '8px',
-          padding: '16px', border: '1px solid #e8eaed',
-          borderTop: '3px solid #e84c3d', marginBottom: '20px',
-          display: 'inline-block', minWidth: '200px'
+          background: '#fff', borderRadius: '8px', padding: '16px',
+          border: '1px solid #e8eaed', borderTop: '3px solid #e84c3d',
+          marginBottom: '20px', display: 'inline-block', minWidth: '200px'
         }}>
-          <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Total charges variables</div>
+          <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Total charges variables traitées</div>
           <div style={{ fontSize: '22px', fontWeight: '700', color: '#e84c3d' }}>
             {totalMontant.toLocaleString('fr-FR')} DH
           </div>
@@ -133,9 +162,8 @@ const ChargesVariables = () => {
 
         {showForm && (
           <div style={{
-            background: '#fff', borderRadius: '8px',
-            padding: '20px', border: '1px solid #e8eaed',
-            marginBottom: '20px'
+            background: '#fff', borderRadius: '8px', padding: '20px',
+            border: '1px solid #e8eaed', marginBottom: '20px'
           }}>
             <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#1a3a6b', marginBottom: '16px' }}>
               Nouvelle charge variable
@@ -150,37 +178,21 @@ const ChargesVariables = () => {
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Service *</label>
                   <select style={inputStyle} value={form.service} onChange={e => setForm({ ...form, service: e.target.value })} required>
                     <option value="">Sélectionner...</option>
-                    {services.map(s => (
-                      <option key={s.id} value={s.id}>{s.nom}</option>
-                    ))}
+                    {services.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
                   </select>
                 </div>
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Catégorie *</label>
-                  <select
-                    style={inputStyle}
-                    value={form.categorie}
-                    onChange={e => setForm({ ...form, categorie: e.target.value, sous_categorie: '' })}
-                    required
-                  >
+                  <select style={inputStyle} value={form.categorie} onChange={e => setForm({ ...form, categorie: e.target.value, sous_categorie: '' })} required>
                     <option value="">Sélectionner une catégorie...</option>
-                    {Object.keys(categories).map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
+                    {Object.keys(categories).map(cat => <option key={cat} value={cat}>{cat}</option>)}
                   </select>
                 </div>
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Sous-catégorie</label>
-                  <select
-                    style={inputStyle}
-                    value={form.sous_categorie}
-                    onChange={e => setForm({ ...form, sous_categorie: e.target.value })}
-                    disabled={!form.categorie}
-                  >
+                  <select style={inputStyle} value={form.sous_categorie} onChange={e => setForm({ ...form, sous_categorie: e.target.value })} disabled={!form.categorie}>
                     <option value="">Sélectionner une sous-catégorie...</option>
-                    {form.categorie && categories[form.categorie]?.map(sub => (
-                      <option key={sub} value={sub}>{sub}</option>
-                    ))}
+                    {form.categorie && categories[form.categorie]?.map(sub => <option key={sub} value={sub}>{sub}</option>)}
                   </select>
                 </div>
                 <div>
@@ -202,11 +214,8 @@ const ChargesVariables = () => {
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Description</label>
                   <input style={inputStyle} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Description de la charge" />
                 </div>
-
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>
-                    Photo (justificatif)
-                  </label>
+                  <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Photo (justificatif)</label>
                   <label style={{
                     display: 'flex', alignItems: 'center', gap: '10px',
                     padding: '12px 16px', border: '2px dashed #e0e0e0',
@@ -230,40 +239,25 @@ const ChargesVariables = () => {
                         {photo ? `${(photo.size / 1024).toFixed(1)} KB` : 'JPG, PNG — max 5MB'}
                       </div>
                     </div>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={e => setPhoto(e.target.files?.[0] || null)}
-                      style={{ display: 'none' }}
-                    />
+                    <input type="file" accept="image/*" onChange={e => setPhoto(e.target.files?.[0] || null)} style={{ display: 'none' }} />
                   </label>
                   {photo && (
-                    <button
-                      type="button"
-                      onClick={() => setPhoto(null)}
-                      style={{
-                        marginTop: '6px', padding: '3px 10px',
-                        background: '#fdeaea', color: '#c0392b',
-                        border: '1px solid #f5c6c6', borderRadius: '4px',
-                        fontSize: '11px', cursor: 'pointer'
-                      }}
-                    >
-                      Supprimer la photo
-                    </button>
+                    <button type="button" onClick={() => setPhoto(null)} style={{
+                      marginTop: '6px', padding: '3px 10px', background: '#fdeaea',
+                      color: '#c0392b', border: '1px solid #f5c6c6',
+                      borderRadius: '4px', fontSize: '11px', cursor: 'pointer'
+                    }}>Supprimer la photo</button>
                   )}
                 </div>
               </div>
-
               <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
                 <button type="submit" style={{
-                  padding: '8px 20px', background: '#1a3a6b',
-                  color: '#fff', border: 'none', borderRadius: '6px',
-                  fontSize: '12px', cursor: 'pointer'
+                  padding: '8px 20px', background: '#1a3a6b', color: '#fff',
+                  border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer'
                 }}>Créer</button>
                 <button type="button" onClick={() => setShowForm(false)} style={{
-                  padding: '8px 20px', background: '#fff',
-                  color: '#555', border: '1px solid #e0e0e0',
-                  borderRadius: '6px', fontSize: '12px', cursor: 'pointer'
+                  padding: '8px 20px', background: '#fff', color: '#555',
+                  border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer'
                 }}>Annuler</button>
               </div>
             </form>
@@ -283,6 +277,7 @@ const ChargesVariables = () => {
                   <th style={{ padding: '10px 14px', textAlign: 'left', color: '#888', fontWeight: '500', borderBottom: '1px solid #e8eaed' }}>Catégorie</th>
                   <th style={{ padding: '10px 14px', textAlign: 'left', color: '#888', fontWeight: '500', borderBottom: '1px solid #e8eaed' }}>Montant</th>
                   <th style={{ padding: '10px 14px', textAlign: 'left', color: '#888', fontWeight: '500', borderBottom: '1px solid #e8eaed' }}>Date</th>
+                  <th style={{ padding: '10px 14px', textAlign: 'left', color: '#888', fontWeight: '500', borderBottom: '1px solid #e8eaed' }}>Photo</th>
                   <th style={{ padding: '10px 14px', textAlign: 'left', color: '#888', fontWeight: '500', borderBottom: '1px solid #e8eaed' }}>Statut</th>
                   <th style={{ padding: '10px 14px', textAlign: 'left', color: '#888', fontWeight: '500', borderBottom: '1px solid #e8eaed' }}>Actions</th>
                 </tr>
@@ -301,6 +296,28 @@ const ChargesVariables = () => {
                       {new Date(charge.date).toLocaleDateString('fr-FR')}
                     </td>
                     <td style={{ padding: '10px 14px' }}>
+                      {charge.photo ? (
+                        <div onClick={() => setSelectedPhoto(charge.photo)} style={{ cursor: 'pointer', display: 'inline-block' }}>
+                          <img
+                            src={charge.photo}
+                            alt="justificatif"
+                            style={{
+                              width: '44px', height: '44px', objectFit: 'cover',
+                              borderRadius: '6px', border: '2px solid #e0e0e0',
+                            }}
+                            onMouseOver={e => (e.currentTarget.style.borderColor = '#0099cc')}
+                            onMouseOut={e => (e.currentTarget.style.borderColor = '#e0e0e0')}
+                          />
+                          <div style={{ fontSize: '10px', color: '#0099cc', marginTop: '2px', textAlign: 'center' }}>Voir</div>
+                        </div>
+                      ) : (
+                        <span style={{
+                          fontSize: '11px', color: '#aaa', background: '#f8f9fa',
+                          padding: '4px 8px', borderRadius: '4px', border: '1px solid #e8eaed'
+                        }}>Aucune</span>
+                      )}
+                    </td>
+                    <td style={{ padding: '10px 14px' }}>
                       <select
                         value={charge.statut}
                         onChange={e => handleStatutChange(charge.id, e.target.value)}
@@ -316,16 +333,10 @@ const ChargesVariables = () => {
                       </select>
                     </td>
                     <td style={{ padding: '10px 14px' }}>
-                      <button
-                        onClick={() => handleDelete(charge.id)}
-                        style={{
-                          padding: '4px 10px', background: '#fdeaea',
-                          color: '#c0392b', border: '1px solid #f5c6c6',
-                          borderRadius: '4px', fontSize: '11px', cursor: 'pointer'
-                        }}
-                      >
-                        Supprimer
-                      </button>
+                      <button onClick={() => handleDelete(charge.id)} style={{
+                        padding: '4px 10px', background: '#fdeaea', color: '#c0392b',
+                        border: '1px solid #f5c6c6', borderRadius: '4px', fontSize: '11px', cursor: 'pointer'
+                      }}>Supprimer</button>
                     </td>
                   </tr>
                 ))}
