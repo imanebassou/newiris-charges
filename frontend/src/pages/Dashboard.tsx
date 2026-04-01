@@ -16,18 +16,21 @@ const Dashboard = () => {
   const [filtreService, setFiltreService] = useState('')
   const [filtreCategorie, setFiltreCategorie] = useState('')
   const [filtreMois, setFiltreMois] = useState('')
+  const [ssmsData, setSsmsData] = useState<any>(null)
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [fixesRes, variablesRes, servicesRes] = await Promise.all([
+        const [fixesRes, variablesRes, servicesRes, ssmsRes] = await Promise.all([
           api.get('/charges-fixes/'),
           api.get('/charges-variables/'),
           api.get('/services/'),
+          api.get('/ssms-dashboard/'),
         ])
         setChargesFixes(fixesRes.data)
         setChargesVariables(variablesRes.data)
         setServices(servicesRes.data)
+        setSsmsData(ssmsRes.data)
       } catch (err) {
         console.error(err)
       } finally {
@@ -83,7 +86,12 @@ const Dashboard = () => {
     borderRadius: '6px', fontSize: '12px',
     background: '#fff', cursor: 'pointer', outline: 'none',
   }
-
+  const ssmsTotal = ssmsData?.total_ca ?? 0
+  const ssmsCategories =
+  ssmsData?.categories?.map((c: any) => ({
+    name: c.categorie,
+    value: c.total
+  })) || []
   return (
     <Layout>
       <div style={{ padding: '20px' }}>
@@ -201,6 +209,72 @@ const Dashboard = () => {
             </div>
           </>
         )}
+        {/* ================= SSMS DASHBOARD ================= */}
+
+<div style={{
+  marginTop: '40px',
+  background: '#fff',
+  padding: '30px',
+  borderRadius: '10px',
+  boxShadow: '0 2px 6px rgba(0,0,0,0.05)'
+}}>
+
+  <h2>SSMS Dashboard 🚀</h2>
+
+  <div style={{
+    background: '#e6f4ea',
+    padding: '12px',
+    borderRadius: '6px',
+    marginBottom: '20px'
+  }}>
+    ✅ Connected to SQL Server
+  </div>
+
+  <h3>Total CA TTC</h3>
+  <h1>{ssmsTotal.toLocaleString('fr-FR')} DH</h1>
+
+  <div style={{
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    marginTop: '20px'
+  }}>
+    <h3>Top catégories</h3>
+    <h3 style={{ textAlign: 'center' }}>Top montants</h3>
+  </div>
+
+  <div style={{
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '40px'
+  }}>
+
+    <div style={{ height: 300 }}>
+      <ResponsiveContainer>
+        <PieChart>
+          <Pie data={ssmsCategories} dataKey="value" outerRadius={110}>
+            {ssmsCategories.map((_: any, i: number) => (
+              <Cell key={i} fill={COLORS[i % COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+
+    <div style={{ height: 300 }}>
+      <ResponsiveContainer>
+        <BarChart data={ssmsCategories}>
+          <XAxis dataKey="name" />
+          <YAxis />
+          <Tooltip />
+          <Bar dataKey="value" fill="#1a3a6b" />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+
+  </div>
+
+</div>
       </div>
     </Layout>
   )
