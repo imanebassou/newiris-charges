@@ -2,39 +2,34 @@ import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import api from '../api/axios'
 
-const categoriesFixes: string[] = [
-  'Loyer',
-  'Électricité',
-  'Eau',
-  'Internet',
-  'Téléphone',
-  'Assurance',
-  'Salaires',
-  'Transport',
-  'Maintenance',
-  'Fournitures bureau',
-  'Autres',
-]
-
 const ChargesFixes = () => {
   document.title = 'Charges fixes — Newiris'
 
   const [charges, setCharges] = useState<any[]>([])
-  const [services, setServices] = useState<any[]>([])
+  const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [categories, setCategories] = useState<string[]>([
+    'Loyer', 'Électricité', 'Eau', 'Internet', 'Téléphone',
+    'Assurance', 'Salaires', 'Transport', 'Maintenance',
+    'Fournitures bureau', 'Autres',
+  ])
+  const [showAddCat, setShowAddCat] = useState(false)
+  const [newCat, setNewCat] = useState('')
+  const [showAddPerson, setShowAddPerson] = useState(false)
+  const [newPerson, setNewPerson] = useState('')
   const [form, setForm] = useState({
     service: '', categorie: '', montant: ''
   })
 
   const fetchData = async () => {
     try {
-      const [chargesRes, servicesRes] = await Promise.all([
+      const [chargesRes, usersRes] = await Promise.all([
         api.get('/charges-fixes/'),
-        api.get('/services/'),
+        api.get('/auth/users/'),
       ])
       setCharges(chargesRes.data)
-      setServices(servicesRes.data)
+      setUsers(usersRes.data)
     } catch (err) {
       console.error(err)
     } finally {
@@ -65,6 +60,32 @@ const ChargesFixes = () => {
     try {
       await api.delete(`/charges-fixes/${id}/`)
       fetchData()
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const handleAddCategory = () => {
+    if (newCat.trim() && !categories.includes(newCat.trim())) {
+      setCategories([...categories, newCat.trim()])
+      setForm({ ...form, categorie: newCat.trim() })
+      setNewCat('')
+      setShowAddCat(false)
+    }
+  }
+
+  const handleAddPerson = async () => {
+    if (!newPerson.trim()) return
+    try {
+      const res = await api.post('/auth/users/', {
+        username: newPerson.trim(),
+        password: 'newiris1234',
+        role: 'others',
+      })
+      setUsers([...users, res.data])
+      setForm({ ...form, service: res.data.id.toString() })
+      setNewPerson('')
+      setShowAddPerson(false)
     } catch (err) {
       console.error(err)
     }
@@ -121,22 +142,64 @@ const ChargesFixes = () => {
             </h3>
             <form onSubmit={handleSubmit}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+
+                {/* PERSONNE */}
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>
-                    Service *
+                    Personne *
                   </label>
                   <select
                     style={inputStyle}
                     value={form.service}
-                    onChange={e => setForm({ ...form, service: e.target.value })}
-                    required
+                    onChange={e => {
+                      if (e.target.value === '__add_person__') {
+                        setShowAddPerson(true)
+                      } else {
+                        setForm({ ...form, service: e.target.value })
+                        setShowAddPerson(false)
+                      }
+                    }}
+                    required={!showAddPerson}
                   >
-                    <option value="">Sélectionner...</option>
-                    {services.map(s => (
-                      <option key={s.id} value={s.id}>{s.nom}</option>
+                    <option value="">Sélectionner une personne...</option>
+                    {users.map(u => (
+                      <option key={u.id} value={u.id}>{u.username}</option>
                     ))}
+                    <option value="__add_person__">➕ Add New</option>
                   </select>
+
+                  {showAddPerson && (
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                      <input
+                        style={{ ...inputStyle, flex: 1 }}
+                        value={newPerson}
+                        onChange={e => setNewPerson(e.target.value)}
+                        placeholder="Nom de la personne..."
+                        onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddPerson())}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddPerson}
+                        style={{
+                          padding: '8px 12px', background: '#1a3a6b',
+                          color: '#fff', border: 'none', borderRadius: '6px',
+                          fontSize: '12px', cursor: 'pointer'
+                        }}
+                      >OK</button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowAddPerson(false); setNewPerson('') }}
+                        style={{
+                          padding: '8px 12px', background: '#fff',
+                          color: '#555', border: '1px solid #e0e0e0',
+                          borderRadius: '6px', fontSize: '12px', cursor: 'pointer'
+                        }}
+                      >✕</button>
+                    </div>
+                  )}
                 </div>
+
+                {/* CATÉGORIE avec Add New */}
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>
                     Catégorie *
@@ -144,15 +207,55 @@ const ChargesFixes = () => {
                   <select
                     style={inputStyle}
                     value={form.categorie}
-                    onChange={e => setForm({ ...form, categorie: e.target.value })}
-                    required
+                    onChange={e => {
+                      if (e.target.value === '__add_new__') {
+                        setShowAddCat(true)
+                      } else {
+                        setForm({ ...form, categorie: e.target.value })
+                        setShowAddCat(false)
+                      }
+                    }}
+                    required={!showAddCat}
                   >
                     <option value="">Sélectionner une catégorie...</option>
-                    {categoriesFixes.map(cat => (
+                    {categories.map(cat => (
                       <option key={cat} value={cat}>{cat}</option>
                     ))}
+                    <option value="__add_new__">➕ Add New</option>
                   </select>
+
+                  {showAddCat && (
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                      <input
+                        style={{ ...inputStyle, flex: 1 }}
+                        value={newCat}
+                        onChange={e => setNewCat(e.target.value)}
+                        placeholder="Nouvelle catégorie..."
+                        onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddCategory())}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddCategory}
+                        style={{
+                          padding: '8px 12px', background: '#1a3a6b',
+                          color: '#fff', border: 'none', borderRadius: '6px',
+                          fontSize: '12px', cursor: 'pointer'
+                        }}
+                      >OK</button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowAddCat(false); setNewCat('') }}
+                        style={{
+                          padding: '8px 12px', background: '#fff',
+                          color: '#555', border: '1px solid #e0e0e0',
+                          borderRadius: '6px', fontSize: '12px', cursor: 'pointer'
+                        }}
+                      >✕</button>
+                    </div>
+                  )}
                 </div>
+
+                {/* MONTANT */}
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>
                     Montant (DH) *
@@ -167,13 +270,20 @@ const ChargesFixes = () => {
                   />
                 </div>
               </div>
+
               <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
                 <button type="submit" style={{
                   padding: '8px 20px', background: '#1a3a6b',
                   color: '#fff', border: 'none', borderRadius: '6px',
                   fontSize: '12px', cursor: 'pointer'
                 }}>Créer</button>
-                <button type="button" onClick={() => setShowForm(false)} style={{
+                <button type="button" onClick={() => {
+                  setShowForm(false)
+                  setShowAddCat(false)
+                  setShowAddPerson(false)
+                  setNewCat('')
+                  setNewPerson('')
+                }} style={{
                   padding: '8px 20px', background: '#fff',
                   color: '#555', border: '1px solid #e0e0e0',
                   borderRadius: '6px', fontSize: '12px', cursor: 'pointer'
@@ -191,7 +301,7 @@ const ChargesFixes = () => {
               <thead>
                 <tr style={{ background: '#f8f9fa' }}>
                   <th style={{ padding: '10px 14px', textAlign: 'left', color: '#888', fontWeight: '500', borderBottom: '1px solid #e8eaed' }}>#</th>
-                  <th style={{ padding: '10px 14px', textAlign: 'left', color: '#888', fontWeight: '500', borderBottom: '1px solid #e8eaed' }}>Service</th>
+                  <th style={{ padding: '10px 14px', textAlign: 'left', color: '#888', fontWeight: '500', borderBottom: '1px solid #e8eaed' }}>Personne</th>
                   <th style={{ padding: '10px 14px', textAlign: 'left', color: '#888', fontWeight: '500', borderBottom: '1px solid #e8eaed' }}>Catégorie</th>
                   <th style={{ padding: '10px 14px', textAlign: 'left', color: '#888', fontWeight: '500', borderBottom: '1px solid #e8eaed' }}>Montant</th>
                   <th style={{ padding: '10px 14px', textAlign: 'left', color: '#888', fontWeight: '500', borderBottom: '1px solid #e8eaed' }}>Créé le</th>
