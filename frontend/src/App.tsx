@@ -9,6 +9,7 @@ import AjouteCharges from './pages/AjouteCharges'
 import Banque from './pages/Banque'
 import PrivateRoute from './routes/PrivateRoute'
 import Previsions from './pages/Previsions'
+import Salaires from './pages/Salaires'
 
 const App = () => {
   return (
@@ -60,6 +61,14 @@ const App = () => {
   element={
     <PrivateRoute allowedRoles={['admin']}>
       <Previsions />
+    </PrivateRoute>
+  }
+/>
+<Route
+  path="/salaires"
+  element={
+    <PrivateRoute allowedRoles={['admin']}>
+      <Salaires />
     </PrivateRoute>
   }
 />

@@ -19,6 +19,7 @@ const Sidebar = () => {
     { label: 'Prévisions', path: '/previsions', roles: ['admin'] },
     { label: 'Charges fixes', path: '/charges-fixes', roles: ['admin'] },
     { label: 'Charges variables', path: '/charges-variables', roles: ['admin'] },
+    { label: 'Salaires', path: '/salaires', roles: ['admin'] },
     { label: 'Ajouter charge variable', path: '/ajoute-charges', roles: ['achat'] },
   ]
 

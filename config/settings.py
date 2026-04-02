@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     'charges_variables',
     'banque',
     'previsions',
+    'salaires',
 ]
 
 MIDDLEWARE = [
