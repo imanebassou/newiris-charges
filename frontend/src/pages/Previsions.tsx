@@ -23,16 +23,28 @@ const Previsions = () => {
     date_prevision: '', categorie: '', statut: 'en_cours'
   })
   const [draggedId, setDraggedId] = useState<number | null>(null)
+  const [categories, setCategories] = useState<string[]>([
+    'Loyer', 'Électricité', 'Eau', 'Internet', 'Téléphone',
+    'Assurance', 'Salaires', 'Transport', 'Maintenance',
+    'Fournitures bureau', 'Vente', 'Prestation', 'Autres',
+  ])
+  const [users, setUsers] = useState<any[]>([])
+  const [showAddCat, setShowAddCat] = useState(false)
+  const [newCat, setNewCat] = useState('')
+  const [showAddPerson, setShowAddPerson] = useState(false)
+  const [newPerson, setNewPerson] = useState('')
 
   const fetchData = async () => {
     try {
-      const [prevsRes, ecartsRes] = await Promise.all([
+      const [prevsRes, ecartsRes, usersRes] = await Promise.all([
         api.get(`/previsions/?mois=${mois}&annee=${annee}`),
         api.get(`/previsions/ecarts/?mois=${mois}&annee=${annee}`),
+        api.get('/auth/users/'),
       ])
       setPrevisions(prevsRes.data)
       setEcarts(ecartsRes.data.ecarts)
       setSoldeBase(ecartsRes.data.solde_base)
+      setUsers(usersRes.data)
     } catch (err) {
       console.error(err)
     } finally {
@@ -59,6 +71,8 @@ const Previsions = () => {
       })
       setShowForm(null)
       setForm({ titre: '', description: '', montant: '', date_prevision: '', categorie: '', statut: 'en_cours' })
+      setShowAddCat(false)
+      setShowAddPerson(false)
       fetchData()
     } catch (err) {
       console.error(err)
@@ -95,13 +109,31 @@ const Previsions = () => {
     }
   }
 
+  const handleAddCat = () => {
+    if (newCat.trim() && !categories.includes(newCat.trim())) {
+      setCategories([...categories, newCat.trim()])
+      setForm({ ...form, categorie: newCat.trim() })
+      setNewCat('')
+      setShowAddCat(false)
+    }
+  }
+
+  const handleAddPerson = () => {
+    if (newPerson.trim() && !users.find((u: any) => u.username === newPerson.trim())) {
+      const fakeUser = { id: `new_${newPerson.trim()}`, username: newPerson.trim() }
+      setUsers([...users, fakeUser])
+      setForm({ ...form, description: newPerson.trim() })
+      setNewPerson('')
+      setShowAddPerson(false)
+    }
+  }
+
   const getStatutColor = (statut: string) => {
     if (statut === 'traitee') return { bg: '#e8f8ef', color: '#1a7a40' }
     if (statut === 'cloturee') return { bg: '#e8eaed', color: '#555' }
     return { bg: '#fff3e0', color: '#e65100' }
   }
 
-  
   const getSemaineStatus = (semaine: number) => {
     const currentWeek = Math.ceil(now.getDate() / 7)
     const currentMois = now.getMonth() + 1
@@ -125,6 +157,8 @@ const Previsions = () => {
     fontSize: '13px', outline: 'none',
   }
 
+  const addNewStyle = { display: 'flex', gap: '6px', marginTop: '6px' }
+
   const prevsBySemaine = (semaine: number) =>
     previsions.filter(p => p.semaine === semaine)
 
@@ -138,7 +172,6 @@ const Previsions = () => {
             <h1 style={{ fontSize: '18px', fontWeight: '700', color: '#1a3a6b' }}>Gestion des prévisions</h1>
             <p style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>Planification des entrées et sorties par semaine</p>
           </div>
-          {/* FILTRE MOIS */}
           <select
             value={`${annee}-${mois}`}
             onChange={e => {
@@ -182,26 +215,64 @@ const Previsions = () => {
             </h3>
             <form onSubmit={handleSubmit}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Titre *</label>
                   <input style={inputStyle} value={form.titre} onChange={e => setForm({ ...form, titre: e.target.value })} required placeholder="Ex: Paiement fournisseur" />
                 </div>
+
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Date de prévision *</label>
                   <input style={inputStyle} type="date" value={form.date_prevision} onChange={e => setForm({ ...form, date_prevision: e.target.value })} required />
                 </div>
+
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Montant (DH) *</label>
                   <input style={inputStyle} type="number" value={form.montant} onChange={e => setForm({ ...form, montant: e.target.value })} required placeholder="Ex: 5000" />
                 </div>
+
+                {/* CATÉGORIE + Add New */}
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Catégorie</label>
-                  <input style={inputStyle} value={form.categorie} onChange={e => setForm({ ...form, categorie: e.target.value })} placeholder="Ex: Loyer" />
+                  <select style={inputStyle} value={form.categorie}
+                    onChange={e => {
+                      if (e.target.value === '__add_cat__') { setShowAddCat(true) }
+                      else { setForm({ ...form, categorie: e.target.value }); setShowAddCat(false) }
+                    }}>
+                    <option value="">Sélectionner une catégorie...</option>
+                    {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    <option value="__add_cat__">➕ Add New</option>
+                  </select>
+                  {showAddCat && (
+                    <div style={addNewStyle}>
+                      <input style={{ ...inputStyle, flex: 1 }} value={newCat} onChange={e => setNewCat(e.target.value)} placeholder="Nouvelle catégorie..." onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddCat())} />
+                      <button type="button" onClick={handleAddCat} style={{ padding: '8px 12px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>OK</button>
+                      <button type="button" onClick={() => { setShowAddCat(false); setNewCat('') }} style={{ padding: '8px 12px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>✕</button>
+                    </div>
+                  )}
                 </div>
+
+                {/* PERSONNE + Add New */}
                 <div>
-                  <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Description</label>
-                  <input style={inputStyle} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Description..." />
+                  <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Personne</label>
+                  <select style={inputStyle} value={form.description}
+                    onChange={e => {
+                      if (e.target.value === '__add_person__') { setShowAddPerson(true) }
+                      else { setForm({ ...form, description: e.target.value }); setShowAddPerson(false) }
+                    }}>
+                    <option value="">Sélectionner une personne...</option>
+                    {users.map((u: any) => <option key={u.id} value={u.username}>{u.username}</option>)}
+                    <option value="__add_person__">➕ Add New</option>
+                  </select>
+                  {showAddPerson && (
+                    <div style={addNewStyle}>
+                      <input style={{ ...inputStyle, flex: 1 }} value={newPerson} onChange={e => setNewPerson(e.target.value)} placeholder="Nom de la personne..." onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddPerson())} />
+                      <button type="button" onClick={handleAddPerson} style={{ padding: '8px 12px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>OK</button>
+                      <button type="button" onClick={() => { setShowAddPerson(false); setNewPerson('') }} style={{ padding: '8px 12px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>✕</button>
+                    </div>
+                  )}
                 </div>
+
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Statut</label>
                   <select style={inputStyle} value={form.statut} onChange={e => setForm({ ...form, statut: e.target.value })}>
@@ -210,6 +281,7 @@ const Previsions = () => {
                     <option value="cloturee">Clôturée</option>
                   </select>
                 </div>
+
               </div>
               <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
                 <button type="submit" style={{
@@ -217,7 +289,7 @@ const Previsions = () => {
                   background: showForm.type === 'entree' ? '#1a7a40' : '#c0392b',
                   color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer'
                 }}>Créer</button>
-                <button type="button" onClick={() => setShowForm(null)} style={{
+                <button type="button" onClick={() => { setShowForm(null); setShowAddCat(false); setShowAddPerson(false) }} style={{
                   padding: '8px 20px', background: '#fff', color: '#555',
                   border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer'
                 }}>Annuler</button>
@@ -247,7 +319,7 @@ const Previsions = () => {
                     minHeight: '300px'
                   }}
                 >
-                  {/* SEMAINE HEADER */}
+                  {/* HEADER */}
                   <div style={{
                     background: '#1a3a6b', padding: '10px 12px',
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center'
@@ -259,27 +331,21 @@ const Previsions = () => {
                     }}>{semaineInfo.label}</span>
                   </div>
 
-                  {/* BOUTONS AJOUTER */}
+                  {/* BOUTONS */}
                   <div style={{ padding: '8px', display: 'flex', gap: '4px' }}>
-                    <button
-                      onClick={() => setShowForm({ semaine, type: 'entree' })}
-                      style={{
-                        flex: 1, padding: '5px', background: '#e8f8ef',
-                        color: '#1a7a40', border: '1px solid #a8d5b5',
-                        borderRadius: '4px', fontSize: '10px', cursor: 'pointer', fontWeight: '600'
-                      }}
-                    >↑ Entrée</button>
-                    <button
-                      onClick={() => setShowForm({ semaine, type: 'sortie' })}
-                      style={{
-                        flex: 1, padding: '5px', background: '#fdeaea',
-                        color: '#c0392b', border: '1px solid #f5c6c6',
-                        borderRadius: '4px', fontSize: '10px', cursor: 'pointer', fontWeight: '600'
-                      }}
-                    >↓ Sortie</button>
+                    <button onClick={() => setShowForm({ semaine, type: 'entree' })} style={{
+                      flex: 1, padding: '5px', background: '#e8f8ef',
+                      color: '#1a7a40', border: '1px solid #a8d5b5',
+                      borderRadius: '4px', fontSize: '10px', cursor: 'pointer', fontWeight: '600'
+                    }}>↑ Entrée</button>
+                    <button onClick={() => setShowForm({ semaine, type: 'sortie' })} style={{
+                      flex: 1, padding: '5px', background: '#fdeaea',
+                      color: '#c0392b', border: '1px solid #f5c6c6',
+                      borderRadius: '4px', fontSize: '10px', cursor: 'pointer', fontWeight: '600'
+                    }}>↓ Sortie</button>
                   </div>
 
-                  {/* CARTES PRÉVISIONS */}
+                  {/* CARTES */}
                   <div style={{ padding: '0 8px 8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     {prevsSemaine.map(prev => {
                       const statutColors = getStatutColor(prev.statut)
@@ -305,6 +371,16 @@ const Previsions = () => {
                           <div style={{ fontSize: '11px', color: prev.type === 'entree' ? '#1a7a40' : '#c0392b', fontWeight: '600', marginBottom: '4px' }}>
                             {prev.type === 'entree' ? '+' : '-'}{parseFloat(prev.montant).toLocaleString('fr-FR')} DH
                           </div>
+                          {prev.description && (
+                            <div style={{ fontSize: '10px', color: '#888', marginBottom: '4px' }}>
+                              👤 {prev.description}
+                            </div>
+                          )}
+                          {prev.categorie && (
+                            <div style={{ fontSize: '10px', color: '#888', marginBottom: '4px' }}>
+                              🏷️ {prev.categorie}
+                            </div>
+                          )}
                           <div style={{ fontSize: '10px', color: '#aaa', marginBottom: '6px' }}>
                             📅 {new Date(prev.date_prevision).toLocaleDateString('fr-FR')}
                           </div>
@@ -339,15 +415,11 @@ const Previsions = () => {
                     <div style={{
                       margin: '0 8px 8px', padding: '8px',
                       background: '#fff', borderRadius: '6px',
-                      border: '1px solid #e8eaed', borderTop: `2px solid ${ecartSemaine.ecart >= 0 ? '#1a7a40' : '#c0392b'}`
+                      border: '1px solid #e8eaed',
+                      borderTop: `2px solid ${ecartSemaine.ecart >= 0 ? '#1a7a40' : '#c0392b'}`
                     }}>
-                      <div style={{ fontSize: '10px', color: '#888', marginBottom: '2px' }}>
-                        Écart S{semaine}
-                      </div>
-                      <div style={{
-                        fontSize: '14px', fontWeight: '700',
-                        color: ecartSemaine.ecart >= 0 ? '#1a7a40' : '#c0392b'
-                      }}>
+                      <div style={{ fontSize: '10px', color: '#888', marginBottom: '2px' }}>Écart S{semaine}</div>
+                      <div style={{ fontSize: '14px', fontWeight: '700', color: ecartSemaine.ecart >= 0 ? '#1a7a40' : '#c0392b' }}>
                         {ecartSemaine.ecart.toLocaleString('fr-FR')} DH
                       </div>
                       <div style={{ fontSize: '10px', color: '#aaa', marginTop: '2px' }}>
