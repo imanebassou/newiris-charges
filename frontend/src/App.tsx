@@ -10,6 +10,7 @@ import Banque from './pages/Banque'
 import PrivateRoute from './routes/PrivateRoute'
 import Previsions from './pages/Previsions'
 import Salaires from './pages/Salaires'
+import Fournisseurs from './pages/Fournisseurs'
 
 const App = () => {
   return (
@@ -32,6 +33,14 @@ const App = () => {
           </PrivateRoute>
         }
       />
+      <Route
+  path="/fournisseurs"
+  element={
+    <PrivateRoute allowedRoles={['admin']}>
+      <Fournisseurs />
+    </PrivateRoute>
+  }
+/>
       <Route
         path="/services"
         element={

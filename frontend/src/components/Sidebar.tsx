@@ -21,6 +21,7 @@ const Sidebar = () => {
     { label: 'Charges variables', path: '/charges-variables', roles: ['admin'] },
     { label: 'Salaires', path: '/salaires', roles: ['admin'] },
     { label: 'Ajouter charge variable', path: '/ajoute-charges', roles: ['achat'] },
+    { label: 'Fournisseurs', path: '/fournisseurs', roles: ['admin'] },
   ]
 
   const filteredItems = navItems.filter(item =>

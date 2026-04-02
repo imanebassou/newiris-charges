@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'banque',
     'previsions',
     'salaires',
+    'fournisseurs',
 ]
 
 MIDDLEWARE = [
