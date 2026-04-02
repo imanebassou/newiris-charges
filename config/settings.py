@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     'charges_fixes',
     'charges_variables',
     'banque',
+    'previsions',
 ]
 
 MIDDLEWARE = [

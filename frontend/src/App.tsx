@@ -8,6 +8,7 @@ import ChargesVariables from './pages/ChargesVariables'
 import AjouteCharges from './pages/AjouteCharges'
 import Banque from './pages/Banque'
 import PrivateRoute from './routes/PrivateRoute'
+import Previsions from './pages/Previsions'
 
 const App = () => {
   return (
@@ -55,6 +56,14 @@ const App = () => {
         }
       />
       <Route
+  path="/previsions"
+  element={
+    <PrivateRoute allowedRoles={['admin']}>
+      <Previsions />
+    </PrivateRoute>
+  }
+/>
+      <Route
         path="/ajoute-charges"
         element={
           <PrivateRoute allowedRoles={['achat']}>
@@ -79,6 +88,8 @@ const App = () => {
         }
       />
     </Routes>
+
+    
   )
 }
 

@@ -16,6 +16,7 @@ const Sidebar = () => {
     { label: 'Utilisateurs', path: '/users', roles: ['admin'] },
     { label: 'Services', path: '/services', roles: ['admin'] },
     { label: 'Banque', path: '/banque', roles: ['admin'] },
+    { label: 'Prévisions', path: '/previsions', roles: ['admin'] },
     { label: 'Charges fixes', path: '/charges-fixes', roles: ['admin'] },
     { label: 'Charges variables', path: '/charges-variables', roles: ['admin'] },
     { label: 'Ajouter charge variable', path: '/ajoute-charges', roles: ['achat'] },

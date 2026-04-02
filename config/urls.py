@@ -17,6 +17,7 @@ urlpatterns = [
     # 🔥 ADD THIS LINE (YOUR NEW API)
     path('api/ssms-dashboard/', ssms_dashboard),
     path('api/banque/', include('banque.urls')),
+    path('api/previsions/', include('previsions.urls')),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
