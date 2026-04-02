@@ -6,7 +6,7 @@ import Services from './pages/Services'
 import ChargesFixes from './pages/ChargesFixes'
 import ChargesVariables from './pages/ChargesVariables'
 import AjouteCharges from './pages/AjouteCharges'
-
+import Banque from './pages/Banque'
 import PrivateRoute from './routes/PrivateRoute'
 
 const App = () => {
@@ -14,7 +14,6 @@ const App = () => {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<Navigate to="/login" replace />} />
-
       <Route
         path="/dashboard"
         element={
@@ -23,9 +22,6 @@ const App = () => {
           </PrivateRoute>
         }
       />
-
-
-
       <Route
         path="/users"
         element={
@@ -34,7 +30,6 @@ const App = () => {
           </PrivateRoute>
         }
       />
-
       <Route
         path="/services"
         element={
@@ -43,7 +38,6 @@ const App = () => {
           </PrivateRoute>
         }
       />
-
       <Route
         path="/charges-fixes"
         element={
@@ -52,7 +46,6 @@ const App = () => {
           </PrivateRoute>
         }
       />
-
       <Route
         path="/charges-variables"
         element={
@@ -61,7 +54,6 @@ const App = () => {
           </PrivateRoute>
         }
       />
-
       <Route
         path="/ajoute-charges"
         element={
@@ -70,7 +62,14 @@ const App = () => {
           </PrivateRoute>
         }
       />
-
+      <Route
+        path="/banque"
+        element={
+          <PrivateRoute allowedRoles={['admin']}>
+            <Banque />
+          </PrivateRoute>
+        }
+      />
       <Route
         path="/unauthorized"
         element={
