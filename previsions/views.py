@@ -27,9 +27,8 @@ class PrevisionViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         old_statut = instance.statut
         response = super().update(request, *args, **kwargs)
-
-        # Si statut passe à traitee → ajouter dans banque
-        if old_statut != 'traitee' and request.data.get('statut') == 'traitee':
+        instance.refresh_from_db()
+        if old_statut != 'traitee' and instance.statut == 'traitee':
             ActionBanque.objects.create(
                 type=instance.type,
                 date=instance.date_prevision,
@@ -55,6 +54,13 @@ def ecarts_view(request):
 
     solde_obj, _ = SoldeInitial.objects.get_or_create(id=1, defaults={'montant': 0})
     solde_base = float(solde_obj.montant)
+
+    previsions_traitees = Prevision.objects.filter(statut='traitee')
+    for p in previsions_traitees:
+        if p.type == 'entree':
+            solde_base += float(p.montant)
+        else:
+            solde_base -= float(p.montant)
 
     ecarts = {}
     solde_courant = solde_base

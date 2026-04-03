@@ -12,11 +12,8 @@ const Banque = () => {
   document.title = 'Banque — Newiris'
 
   const [actions, setActions] = useState<any[]>([])
-  const [soldeInfo, setSoldeInfo] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [editingSolde, setEditingSolde] = useState(false)
-  const [newSolde, setNewSolde] = useState('')
   const [categories, setCategories] = useState<string[]>(categoriesBanque)
   const [showAddCat, setShowAddCat] = useState(false)
   const [newCat, setNewCat] = useState('')
@@ -27,12 +24,8 @@ const Banque = () => {
 
   const fetchData = async () => {
     try {
-      const [actionsRes, soldeRes] = await Promise.all([
-        api.get('/banque/actions/'),
-        api.get('/banque/solde-calcule/'),
-      ])
-      setActions(actionsRes.data)
-      setSoldeInfo(soldeRes.data)
+      const actionsRes = await api.get('/banque/actions/')
+setActions(actionsRes.data)
     } catch (err) {
       console.error(err)
     } finally {
@@ -72,17 +65,6 @@ const Banque = () => {
     }
   }
 
-  const handleSoldeUpdate = async () => {
-    try {
-      await api.put('/banque/solde/', { montant: parseFloat(newSolde) })
-      setEditingSolde(false)
-      setNewSolde('')
-      fetchData()
-    } catch (err) {
-      console.error(err)
-    }
-  }
-
   const handleAddCat = () => {
     if (newCat.trim() && !categories.includes(newCat.trim())) {
       setCategories([...categories, newCat.trim()])
@@ -97,6 +79,17 @@ const Banque = () => {
     border: '1px solid #e0e0e0', borderRadius: '6px',
     fontSize: '13px', outline: 'none',
   }
+
+  // Calcul local basé sur statut traitée
+  const totalEntrees = actions
+    .filter(a => a.type === 'entree' && a.statut === 'traitee')
+    .reduce((sum, a) => sum + parseFloat(a.montant), 0)
+
+  const totalSorties = actions
+    .filter(a => a.type === 'sortie' && a.statut === 'traitee')
+    .reduce((sum, a) => sum + parseFloat(a.montant), 0)
+
+  const solde = totalEntrees - totalSorties
 
   return (
     <Layout>
@@ -114,49 +107,41 @@ const Banque = () => {
           }}>+ Ajouter NV</button>
         </div>
 
-        {/* SOLDE CARD */}
-        <div style={{
-          background: '#fff', borderRadius: '8px', padding: '20px',
-          border: '1px solid #e8eaed', borderTop: '3px solid #1a3a6b',
-          marginBottom: '20px', display: 'inline-block', minWidth: '280px'
-        }}>
-          <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Solde en DH</div>
-          {editingSolde ? (
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px' }}>
-              <input
-                style={{ ...inputStyle, width: '160px' }}
-                type="number"
-                value={newSolde}
-                onChange={e => setNewSolde(e.target.value)}
-                placeholder="Nouveau solde..."
-                autoFocus
-              />
-              <button onClick={handleSoldeUpdate} style={{
-                padding: '8px 14px', background: '#1a3a6b', color: '#fff',
-                border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer'
-              }}>OK</button>
-              <button onClick={() => { setEditingSolde(false); setNewSolde('') }} style={{
-                padding: '8px 14px', background: '#fff', color: '#555',
-                border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer'
-              }}>✕</button>
+        {/* KPI CARDS */}
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
+          <div style={{
+            background: '#fff', borderRadius: '8px', padding: '16px',
+            border: '1px solid #e8eaed', borderTop: '3px solid #1a3a6b',
+            minWidth: '200px'
+          }}>
+            <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Solde en DH</div>
+            <div style={{ fontSize: '22px', fontWeight: '700', color: '#1a3a6b' }}>
+              {solde.toLocaleString('fr-FR')} DH
             </div>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ fontSize: '26px', fontWeight: '700', color: '#1a3a6b' }}>
-                {soldeInfo ? soldeInfo.solde_final.toLocaleString('fr-FR') : '—'} DH
-              </div>
-              <button onClick={() => { setEditingSolde(true); setNewSolde(soldeInfo?.solde_base?.toString() || '') }} style={{
-                padding: '4px 10px', background: '#e8f4fb', color: '#0099cc',
-                border: '1px solid #b3d9f0', borderRadius: '4px', fontSize: '11px', cursor: 'pointer'
-              }}>✏️ edit</button>
+            <div style={{ fontSize: '10px', color: '#aaa', marginTop: '4px' }}>
+              Entrées traitées - Sorties traitées
             </div>
-          )}
-          {soldeInfo && (
-            <div style={{ marginTop: '8px', fontSize: '11px', color: '#aaa' }}>
-              ↑ Entrées : {soldeInfo.entrees.toLocaleString('fr-FR')} DH &nbsp;|&nbsp;
-              ↓ Sorties : {soldeInfo.sorties.toLocaleString('fr-FR')} DH
+          </div>
+          <div style={{
+            background: '#fff', borderRadius: '8px', padding: '16px',
+            border: '1px solid #e8eaed', borderTop: '3px solid #1a7a40',
+            minWidth: '180px'
+          }}>
+            <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Total entrées traitées</div>
+            <div style={{ fontSize: '22px', fontWeight: '700', color: '#1a7a40' }}>
+              +{totalEntrees.toLocaleString('fr-FR')} DH
             </div>
-          )}
+          </div>
+          <div style={{
+            background: '#fff', borderRadius: '8px', padding: '16px',
+            border: '1px solid #e8eaed', borderTop: '3px solid #c0392b',
+            minWidth: '180px'
+          }}>
+            <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Total sorties traitées</div>
+            <div style={{ fontSize: '22px', fontWeight: '700', color: '#c0392b' }}>
+              -{totalSorties.toLocaleString('fr-FR')} DH
+            </div>
+          </div>
         </div>
 
         {/* FORMULAIRE */}
@@ -170,7 +155,6 @@ const Banque = () => {
             </h3>
             <form onSubmit={handleSubmit}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Type *</label>
                   <select style={inputStyle} value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} required>
@@ -178,28 +162,22 @@ const Banque = () => {
                     <option value="sortie">Sortie</option>
                   </select>
                 </div>
-
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Date *</label>
                   <input style={inputStyle} type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} required />
                 </div>
-
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Titre *</label>
                   <input style={inputStyle} value={form.titre} onChange={e => setForm({ ...form, titre: e.target.value })} required placeholder="Ex: Entrée X" />
                 </div>
-
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Description</label>
                   <input style={inputStyle} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Description..." />
                 </div>
-
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Montant (DH) *</label>
                   <input style={inputStyle} type="number" value={form.montant} onChange={e => setForm({ ...form, montant: e.target.value })} required placeholder="Ex: 2000" />
                 </div>
-
-                {/* CATÉGORIE + Add New */}
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Catégorie</label>
                   <select style={inputStyle} value={form.categorie}
@@ -209,17 +187,16 @@ const Banque = () => {
                     }}>
                     <option value="">Sélectionner une catégorie...</option>
                     {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                    <option value="__add_cat__">➕ Add New</option>
+                    <option value="__add_cat__">+ Add New</option>
                   </select>
                   {showAddCat && (
                     <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
                       <input style={{ ...inputStyle, flex: 1 }} value={newCat} onChange={e => setNewCat(e.target.value)} placeholder="Nouvelle catégorie..." onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddCat())} />
                       <button type="button" onClick={handleAddCat} style={{ padding: '8px 12px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>OK</button>
-                      <button type="button" onClick={() => { setShowAddCat(false); setNewCat('') }} style={{ padding: '8px 12px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>✕</button>
+                      <button type="button" onClick={() => { setShowAddCat(false); setNewCat('') }} style={{ padding: '8px 12px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>X</button>
                     </div>
                   )}
                 </div>
-
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Statut</label>
                   <select style={inputStyle} value={form.statut} onChange={e => setForm({ ...form, statut: e.target.value })}>
@@ -228,7 +205,6 @@ const Banque = () => {
                   </select>
                 </div>
               </div>
-
               <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
                 <button type="submit" style={{
                   padding: '8px 20px', background: '#1a3a6b', color: '#fff',
@@ -258,7 +234,10 @@ const Banque = () => {
               </thead>
               <tbody>
                 {actions.map(action => (
-                  <tr key={action.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
+                  <tr key={action.id} style={{
+                    borderBottom: '1px solid #f5f5f5',
+                    opacity: action.statut === 'en_cours' ? 0.7 : 1,
+                  }}>
                     <td style={{ padding: '10px 14px', color: '#aaa' }}>{action.id}</td>
                     <td style={{ padding: '10px 14px' }}>
                       <span style={{
@@ -266,14 +245,17 @@ const Banque = () => {
                         background: action.type === 'entree' ? '#e8f8ef' : '#fdeaea',
                         color: action.type === 'entree' ? '#1a7a40' : '#c0392b',
                       }}>
-                        {action.type === 'entree' ? '↑ Entrée' : '↓ Sortie'}
+                        {action.type === 'entree' ? 'Entrée' : 'Sortie'}
                       </span>
                     </td>
                     <td style={{ padding: '10px 14px', color: '#555' }}>{new Date(action.date).toLocaleDateString('fr-FR')}</td>
                     <td style={{ padding: '10px 14px', fontWeight: '500', color: '#2c2c2c' }}>{action.titre}</td>
                     <td style={{ padding: '10px 14px', color: '#555' }}>{action.description || '—'}</td>
-                    <td style={{ padding: '10px 14px', fontWeight: '600', color: action.type === 'entree' ? '#1a7a40' : '#c0392b' }}>
+                    <td style={{ padding: '10px 14px', fontWeight: '600', color: action.statut === 'en_cours' ? '#aaa' : action.type === 'entree' ? '#1a7a40' : '#c0392b' }}>
                       {action.type === 'entree' ? '+' : '-'}{parseFloat(action.montant).toLocaleString('fr-FR')} DH
+                      {action.statut === 'en_cours' && (
+                        <span style={{ fontSize: '9px', color: '#aaa', marginLeft: '4px' }}>(en cours)</span>
+                      )}
                     </td>
                     <td style={{ padding: '10px 14px', color: '#555' }}>{action.categorie || '—'}</td>
                     <td style={{ padding: '10px 14px' }}>

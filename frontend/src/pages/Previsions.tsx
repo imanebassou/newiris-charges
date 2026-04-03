@@ -88,7 +88,8 @@ const Previsions = () => {
     }
   }
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (e: React.MouseEvent, id: number) => {
+    e.stopPropagation()
     if (!confirm('Supprimer cette prévision ?')) return
     try {
       await api.delete(`/previsions/${id}/`)
@@ -159,8 +160,60 @@ const Previsions = () => {
 
   const addNewStyle = { display: 'flex', gap: '6px', marginTop: '6px' }
 
-  const prevsBySemaine = (semaine: number) =>
-    previsions.filter(p => p.semaine === semaine)
+  const prevsBySemaineAndType = (semaine: number, type: string) =>
+    previsions.filter(p => p.semaine === semaine && p.type === type)
+
+  const renderCard = (prev: any) => {
+    const statutColors = getStatutColor(prev.statut)
+    const isEntree = prev.type === 'entree'
+    return (
+      <div
+        key={prev.id}
+        draggable
+        onDragStart={() => setDraggedId(prev.id)}
+        style={{
+          background: '#fff', borderRadius: '6px',
+          padding: '8px 10px', border: '1px solid #e8eaed',
+          borderLeft: `3px solid ${isEntree ? '#1a7a40' : '#c0392b'}`,
+          cursor: 'grab'
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+          <span style={{ fontSize: '11px', fontWeight: '600', color: '#2c2c2c' }}>{prev.titre}</span>
+          <button
+            onClick={e => handleDelete(e, prev.id)}
+            style={{
+              background: '#fdeaea', border: '1px solid #f5c6c6',
+              color: '#c0392b', fontSize: '10px', cursor: 'pointer',
+              padding: '1px 6px', borderRadius: '3px', fontWeight: '600'
+            }}
+          >Supprimer</button>
+        </div>
+        <div style={{ fontSize: '12px', fontWeight: '700', color: isEntree ? '#1a7a40' : '#c0392b', marginBottom: '3px' }}>
+          {isEntree ? '+' : '-'}{parseFloat(prev.montant).toLocaleString('fr-FR')} DH
+        </div>
+        <div style={{ fontSize: '10px', color: '#888', marginBottom: '4px' }}>
+          {new Date(prev.date_prevision).toLocaleDateString('fr-FR')}
+          {prev.description && ` — ${prev.description}`}
+          {prev.categorie && ` — ${prev.categorie}`}
+        </div>
+        <select
+          value={prev.statut}
+          onChange={e => handleStatutChange(prev.id, e.target.value)}
+          style={{
+            width: '100%', padding: '2px 6px',
+            borderRadius: '4px', fontSize: '10px',
+            border: '1px solid #e0e0e0', cursor: 'pointer',
+            background: statutColors.bg, color: statutColors.color,
+          }}
+        >
+          <option value="en_cours">En cours</option>
+          <option value="traitee">Traitée</option>
+          <option value="cloturee">Clôturée</option>
+        </select>
+      </div>
+    )
+  }
 
   return (
     <Layout>
@@ -195,11 +248,16 @@ const Previsions = () => {
         <div style={{
           background: '#fff', borderRadius: '8px', padding: '16px',
           border: '1px solid #e8eaed', borderTop: '3px solid #1a3a6b',
-          marginBottom: '20px', display: 'inline-block', minWidth: '200px'
+          marginBottom: '20px', display: 'inline-block', minWidth: '250px'
         }}>
-          <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Solde de base</div>
+          <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>
+            Solde (basé sur les prévisions traitées)
+          </div>
           <div style={{ fontSize: '22px', fontWeight: '700', color: '#1a3a6b' }}>
             {soldeBase.toLocaleString('fr-FR')} DH
+          </div>
+          <div style={{ fontSize: '10px', color: '#aaa', marginTop: '4px' }}>
+            Mis à jour automatiquement selon les statuts
           </div>
         </div>
 
@@ -211,27 +269,22 @@ const Previsions = () => {
             borderTop: `3px solid ${showForm.type === 'entree' ? '#1a7a40' : '#c0392b'}`
           }}>
             <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#1a3a6b', marginBottom: '16px' }}>
-              {showForm.type === 'entree' ? '↑ Nouvelle prévision entrée' : '↓ Nouvelle prévision sortie'} — Semaine {showForm.semaine}
+              {showForm.type === 'entree' ? 'Nouvelle prévision Entrée' : 'Nouvelle prévision Sortie'} — Semaine {showForm.semaine}
             </h3>
             <form onSubmit={handleSubmit}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Titre *</label>
                   <input style={inputStyle} value={form.titre} onChange={e => setForm({ ...form, titre: e.target.value })} required placeholder="Ex: Paiement fournisseur" />
                 </div>
-
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Date de prévision *</label>
                   <input style={inputStyle} type="date" value={form.date_prevision} onChange={e => setForm({ ...form, date_prevision: e.target.value })} required />
                 </div>
-
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Montant (DH) *</label>
                   <input style={inputStyle} type="number" value={form.montant} onChange={e => setForm({ ...form, montant: e.target.value })} required placeholder="Ex: 5000" />
                 </div>
-
-                {/* CATÉGORIE + Add New */}
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Catégorie</label>
                   <select style={inputStyle} value={form.categorie}
@@ -241,18 +294,16 @@ const Previsions = () => {
                     }}>
                     <option value="">Sélectionner une catégorie...</option>
                     {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                    <option value="__add_cat__">➕ Add New</option>
+                    <option value="__add_cat__">+ Add New</option>
                   </select>
                   {showAddCat && (
                     <div style={addNewStyle}>
                       <input style={{ ...inputStyle, flex: 1 }} value={newCat} onChange={e => setNewCat(e.target.value)} placeholder="Nouvelle catégorie..." onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddCat())} />
                       <button type="button" onClick={handleAddCat} style={{ padding: '8px 12px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>OK</button>
-                      <button type="button" onClick={() => { setShowAddCat(false); setNewCat('') }} style={{ padding: '8px 12px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>✕</button>
+                      <button type="button" onClick={() => { setShowAddCat(false); setNewCat('') }} style={{ padding: '8px 12px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>X</button>
                     </div>
                   )}
                 </div>
-
-                {/* PERSONNE + Add New */}
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Personne</label>
                   <select style={inputStyle} value={form.description}
@@ -262,17 +313,16 @@ const Previsions = () => {
                     }}>
                     <option value="">Sélectionner une personne...</option>
                     {users.map((u: any) => <option key={u.id} value={u.username}>{u.username}</option>)}
-                    <option value="__add_person__">➕ Add New</option>
+                    <option value="__add_person__">+ Add New</option>
                   </select>
                   {showAddPerson && (
                     <div style={addNewStyle}>
                       <input style={{ ...inputStyle, flex: 1 }} value={newPerson} onChange={e => setNewPerson(e.target.value)} placeholder="Nom de la personne..." onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddPerson())} />
                       <button type="button" onClick={handleAddPerson} style={{ padding: '8px 12px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>OK</button>
-                      <button type="button" onClick={() => { setShowAddPerson(false); setNewPerson('') }} style={{ padding: '8px 12px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>✕</button>
+                      <button type="button" onClick={() => { setShowAddPerson(false); setNewPerson('') }} style={{ padding: '8px 12px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>X</button>
                     </div>
                   )}
                 </div>
-
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Statut</label>
                   <select style={inputStyle} value={form.statut} onChange={e => setForm({ ...form, statut: e.target.value })}>
@@ -281,7 +331,6 @@ const Previsions = () => {
                     <option value="cloturee">Clôturée</option>
                   </select>
                 </div>
-
               </div>
               <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
                 <button type="submit" style={{
@@ -306,7 +355,8 @@ const Previsions = () => {
             {[1, 2, 3, 4].map(semaine => {
               const semaineInfo = getSemaineLabel(semaine)
               const ecartSemaine = ecarts?.[`semaine_${semaine}`]
-              const prevsSemaine = prevsBySemaine(semaine)
+              const entrees = prevsBySemaineAndType(semaine, 'entree')
+              const sorties = prevsBySemaineAndType(semaine, 'sortie')
 
               return (
                 <div
@@ -316,7 +366,7 @@ const Previsions = () => {
                   style={{
                     background: '#f8f9fa', borderRadius: '8px',
                     border: '1px solid #e8eaed', overflow: 'hidden',
-                    minHeight: '300px'
+                    minHeight: '400px'
                   }}
                 >
                   {/* HEADER */}
@@ -324,106 +374,79 @@ const Previsions = () => {
                     background: '#1a3a6b', padding: '10px 12px',
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                   }}>
-                    <span style={{ color: '#fff', fontWeight: '600', fontSize: '13px' }}>Semaine {semaine}</span>
+                    <span style={{ color: '#fff', fontWeight: '700', fontSize: '13px' }}>Semaine {semaine}</span>
                     <span style={{
                       background: semaineInfo.bg, color: semaineInfo.color,
-                      fontSize: '10px', padding: '2px 6px', borderRadius: '4px', fontWeight: '600'
+                      fontSize: '10px', padding: '2px 8px', borderRadius: '4px', fontWeight: '600'
                     }}>{semaineInfo.label}</span>
                   </div>
 
-                  {/* BOUTONS */}
-                  <div style={{ padding: '8px', display: 'flex', gap: '4px' }}>
-                    <button onClick={() => setShowForm({ semaine, type: 'entree' })} style={{
-                      flex: 1, padding: '5px', background: '#e8f8ef',
-                      color: '#1a7a40', border: '1px solid #a8d5b5',
-                      borderRadius: '4px', fontSize: '10px', cursor: 'pointer', fontWeight: '600'
-                    }}>↑ Entrée</button>
-                    <button onClick={() => setShowForm({ semaine, type: 'sortie' })} style={{
-                      flex: 1, padding: '5px', background: '#fdeaea',
-                      color: '#c0392b', border: '1px solid #f5c6c6',
-                      borderRadius: '4px', fontSize: '10px', cursor: 'pointer', fontWeight: '600'
-                    }}>↓ Sortie</button>
-                  </div>
+                  <div style={{ padding: '8px' }}>
 
-                  {/* CARTES */}
-                  <div style={{ padding: '0 8px 8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {prevsSemaine.map(prev => {
-                      const statutColors = getStatutColor(prev.statut)
-                      return (
-                        <div
-                          key={prev.id}
-                          draggable
-                          onDragStart={() => setDraggedId(prev.id)}
-                          style={{
-                            background: '#fff', borderRadius: '6px',
-                            padding: '10px', border: '1px solid #e8eaed',
-                            borderLeft: `3px solid ${prev.type === 'entree' ? '#1a7a40' : '#c0392b'}`,
-                            cursor: 'grab'
-                          }}
-                        >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-                            <div style={{ fontSize: '12px', fontWeight: '600', color: '#2c2c2c' }}>{prev.titre}</div>
-                            <button onClick={() => handleDelete(prev.id)} style={{
-                              background: 'none', border: 'none', color: '#e84c3d',
-                              fontSize: '12px', cursor: 'pointer', padding: '0'
-                            }}>✕</button>
-                          </div>
-                          <div style={{ fontSize: '11px', color: prev.type === 'entree' ? '#1a7a40' : '#c0392b', fontWeight: '600', marginBottom: '4px' }}>
-                            {prev.type === 'entree' ? '+' : '-'}{parseFloat(prev.montant).toLocaleString('fr-FR')} DH
-                          </div>
-                          {prev.description && (
-                            <div style={{ fontSize: '10px', color: '#888', marginBottom: '4px' }}>
-                              👤 {prev.description}
-                            </div>
-                          )}
-                          {prev.categorie && (
-                            <div style={{ fontSize: '10px', color: '#888', marginBottom: '4px' }}>
-                              🏷️ {prev.categorie}
-                            </div>
-                          )}
-                          <div style={{ fontSize: '10px', color: '#aaa', marginBottom: '6px' }}>
-                            📅 {new Date(prev.date_prevision).toLocaleDateString('fr-FR')}
-                          </div>
-                          <select
-                            value={prev.statut}
-                            onChange={e => handleStatutChange(prev.id, e.target.value)}
-                            style={{
-                              width: '100%', padding: '3px 6px',
-                              borderRadius: '4px', fontSize: '10px',
-                              border: '1px solid #e0e0e0', cursor: 'pointer',
-                              background: statutColors.bg,
-                              color: statutColors.color,
-                            }}
-                          >
-                            <option value="en_cours">En cours</option>
-                            <option value="traitee">Traitée</option>
-                            <option value="cloturee">Clôturée</option>
-                          </select>
+                    {/* SECTION ENTREES */}
+                    <div style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '6px 8px', background: '#e8f8ef', borderRadius: '6px',
+                      marginBottom: '6px', border: '1px solid #a8d5b5'
+                    }}>
+                      <span style={{ fontSize: '11px', fontWeight: '700', color: '#1a7a40' }}>ENTREES</span>
+                      <button onClick={() => setShowForm({ semaine, type: 'entree' })} style={{
+                        padding: '2px 8px', background: '#1a7a40', color: '#fff',
+                        border: 'none', borderRadius: '4px', fontSize: '10px',
+                        cursor: 'pointer', fontWeight: '600'
+                      }}>+ Ajouter</button>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
+                      {entrees.length === 0 ? (
+                        <div style={{ textAlign: 'center', color: '#aaa', fontSize: '11px', padding: '8px 0', fontStyle: 'italic' }}>
+                          Aucune entrée
                         </div>
-                      )
-                    })}
+                      ) : entrees.map(prev => renderCard(prev))}
+                    </div>
 
-                    {prevsSemaine.length === 0 && (
-                      <div style={{ textAlign: 'center', color: '#aaa', fontSize: '11px', padding: '20px 0' }}>
-                        Aucune prévision
-                      </div>
-                    )}
+                    {/* SECTION SORTIES */}
+                    <div style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '6px 8px', background: '#fdeaea', borderRadius: '6px',
+                      marginBottom: '6px', border: '1px solid #f5c6c6'
+                    }}>
+                      <span style={{ fontSize: '11px', fontWeight: '700', color: '#c0392b' }}>SORTIES</span>
+                      <button onClick={() => setShowForm({ semaine, type: 'sortie' })} style={{
+                        padding: '2px 8px', background: '#c0392b', color: '#fff',
+                        border: 'none', borderRadius: '4px', fontSize: '10px',
+                        cursor: 'pointer', fontWeight: '600'
+                      }}>+ Ajouter</button>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
+                      {sorties.length === 0 ? (
+                        <div style={{ textAlign: 'center', color: '#aaa', fontSize: '11px', padding: '8px 0', fontStyle: 'italic' }}>
+                          Aucune sortie
+                        </div>
+                      ) : sorties.map(prev => renderCard(prev))}
+                    </div>
                   </div>
 
-                  {/* ÉCART */}
+                  {/* ECART */}
                   {ecartSemaine && (
                     <div style={{
-                      margin: '0 8px 8px', padding: '8px',
+                      margin: '0 8px 8px', padding: '8px 10px',
                       background: '#fff', borderRadius: '6px',
                       border: '1px solid #e8eaed',
                       borderTop: `2px solid ${ecartSemaine.ecart >= 0 ? '#1a7a40' : '#c0392b'}`
                     }}>
-                      <div style={{ fontSize: '10px', color: '#888', marginBottom: '2px' }}>Écart S{semaine}</div>
-                      <div style={{ fontSize: '14px', fontWeight: '700', color: ecartSemaine.ecart >= 0 ? '#1a7a40' : '#c0392b' }}>
-                        {ecartSemaine.ecart.toLocaleString('fr-FR')} DH
-                      </div>
-                      <div style={{ fontSize: '10px', color: '#aaa', marginTop: '2px' }}>
-                        ↑ {ecartSemaine.entrees.toLocaleString('fr-FR')} | ↓ {ecartSemaine.sorties.toLocaleString('fr-FR')}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontSize: '10px', color: '#888' }}>Ecart S{semaine}</div>
+                          <div style={{ fontSize: '15px', fontWeight: '700', color: ecartSemaine.ecart >= 0 ? '#1a7a40' : '#c0392b' }}>
+                            {ecartSemaine.ecart.toLocaleString('fr-FR')} DH
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: '10px', color: '#1a7a40' }}>+{ecartSemaine.entrees.toLocaleString('fr-FR')}</div>
+                          <div style={{ fontSize: '10px', color: '#c0392b' }}>-{ecartSemaine.sorties.toLocaleString('fr-FR')}</div>
+                        </div>
                       </div>
                       <div style={{ marginTop: '4px' }}>
                         <span style={{
