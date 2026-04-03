@@ -8,6 +8,8 @@ const Fournisseurs = () => {
   const [fournisseurs, setFournisseurs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editingDate, setEditingDate] = useState('')
   const [form, setForm] = useState({
     nom: '', type_contrat: '', date_fin_rf: ''
   })
@@ -56,6 +58,26 @@ const Fournisseurs = () => {
     }
   }
 
+  const handleUpdateDate = async (id: number) => {
+    try {
+      await api.patch(`/fournisseurs/${id}/`, { date_fin_rf: editingDate })
+      setEditingId(null)
+      setEditingDate('')
+      fetchData()
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const handleUpdateEtat = async (id: number, etat: string) => {
+    try {
+      await api.patch(`/fournisseurs/${id}/`, { etat_regularite_override: etat })
+      fetchData()
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
   const handleAddType = () => {
     if (newType.trim() && !typesContrat.includes(newType.trim())) {
       setTypesContrat([...typesContrat, newType.trim()])
@@ -67,6 +89,7 @@ const Fournisseurs = () => {
 
   const getEtatStyle = (etat: string) => {
     if (etat === 'en_cours') return { bg: '#e8f8ef', color: '#1a7a40', label: 'En cours' }
+    if (etat === 'renouvelee') return { bg: '#e8f4fb', color: '#0099cc', label: 'Renouvelée' }
     return { bg: '#fdeaea', color: '#c0392b', label: 'Dépassée' }
   }
 
@@ -109,13 +132,10 @@ const Fournisseurs = () => {
             </h3>
             <form onSubmit={handleSubmit}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Nom du fournisseur *</label>
                   <input style={inputStyle} value={form.nom} onChange={e => setForm({ ...form, nom: e.target.value })} required placeholder="Ex: Fournisseur X" />
                 </div>
-
-                {/* TYPE CONTRAT + Add New */}
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Type de contrat *</label>
                   <select style={inputStyle} value={form.type_contrat}
@@ -135,13 +155,11 @@ const Fournisseurs = () => {
                     </div>
                   )}
                 </div>
-
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Date de fin de RF *</label>
                   <input style={inputStyle} type="date" value={form.date_fin_rf} onChange={e => setForm({ ...form, date_fin_rf: e.target.value })} required />
                 </div>
               </div>
-
               <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
                 <button type="submit" style={{ padding: '8px 20px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Créer</button>
                 <button type="button" onClick={() => { setShowForm(false); setShowAddType(false) }} style={{ padding: '8px 20px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Annuler</button>
@@ -171,20 +189,54 @@ const Fournisseurs = () => {
                     <tr key={f.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
                       <td style={{ padding: '10px 14px', fontWeight: '500', color: '#2c2c2c' }}>{f.nom}</td>
                       <td style={{ padding: '10px 14px', color: '#555' }}>{f.type_contrat}</td>
-                      <td style={{ padding: '10px 14px', color: '#555' }}>
-                        {new Date(f.date_fin_rf).toLocaleDateString('fr-FR')}
+
+                      {/* DATE MODIFIABLE */}
+                      <td style={{ padding: '10px 14px' }}>
+                        {editingId === f.id ? (
+                          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                            <input
+                              type="date"
+                              value={editingDate}
+                              onChange={e => setEditingDate(e.target.value)}
+                              style={{ ...inputStyle, width: '140px', padding: '4px 8px' }}
+                            />
+                            <button onClick={() => handleUpdateDate(f.id)} style={{ padding: '4px 8px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✓</button>
+                            <button onClick={() => { setEditingId(null); setEditingDate('') }} style={{ padding: '4px 8px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✕</button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ color: '#555' }}>{new Date(f.date_fin_rf).toLocaleDateString('fr-FR')}</span>
+                            <button
+                              onClick={() => { setEditingId(f.id); setEditingDate(f.date_fin_rf) }}
+                              style={{ padding: '2px 6px', background: '#e8f4fb', color: '#0099cc', border: '1px solid #b3d9f0', borderRadius: '3px', fontSize: '10px', cursor: 'pointer' }}
+                            >✏️</button>
+                          </div>
+                        )}
                       </td>
+
+                      {/* ÉCHÉANCE */}
                       <td style={{ padding: '10px 14px', fontWeight: '700', color: echeanceColor }}>
                         {f.echeance} j
                       </td>
+
+                      {/* ÉTAT MODIFIABLE */}
                       <td style={{ padding: '10px 14px' }}>
-                        <span style={{
-                          padding: '3px 10px', borderRadius: '4px', fontSize: '11px',
-                          fontWeight: '600', background: etatStyle.bg, color: etatStyle.color
-                        }}>
-                          {etatStyle.label}
-                        </span>
+                        <select
+                          value={f.etat_regularite}
+                          onChange={e => handleUpdateEtat(f.id, e.target.value)}
+                          style={{
+                            padding: '3px 8px', borderRadius: '4px', fontSize: '11px',
+                            border: '1px solid #e0e0e0', cursor: 'pointer',
+                            background: etatStyle.bg, color: etatStyle.color,
+                            fontWeight: '600'
+                          }}
+                        >
+                          <option value="en_cours">En cours</option>
+                          <option value="depasee">Dépassée</option>
+                          <option value="renouvelee">Renouvelée</option>
+                        </select>
                       </td>
+
                       <td style={{ padding: '10px 14px' }}>
                         <button onClick={() => handleDelete(f.id)} style={{
                           padding: '4px 10px', background: '#fdeaea', color: '#c0392b',

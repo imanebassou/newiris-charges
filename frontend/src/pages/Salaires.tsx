@@ -12,8 +12,17 @@ const Salaires = () => {
   const [etat, setEtat] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'etat' | 'salaries' | 'actions'>('etat')
+  const [statutEtat, setStatutEtat] = useState<{ [key: number]: string }>({})
 
-  // Forms
+  // Editing salarie periode
+  const [editingSalarieId, setEditingSalarieId] = useState<number | null>(null)
+  const [editingDateDebut, setEditingDateDebut] = useState('')
+  const [editingDateFin, setEditingDateFin] = useState('')
+
+  // Editing action date
+  const [editingActionId, setEditingActionId] = useState<number | null>(null)
+  const [editingActionDate, setEditingActionDate] = useState('')
+
   const [showAddSalarie, setShowAddSalarie] = useState(false)
   const [showAddAction, setShowAddAction] = useState(false)
   const [formSalarie, setFormSalarie] = useState({
@@ -22,8 +31,6 @@ const Salaires = () => {
   const [formAction, setFormAction] = useState({
     salarie: '', type: 'entree', categorie: '', montant: '', date: '', statut: 'en_cours'
   })
-
-  // Categories
   const [categories, setCategories] = useState<string[]>([
     'Prime', 'Bonus', 'Heures supplémentaires', 'Avance', 'Déduction', 'Absence', 'Autres'
   ])
@@ -43,6 +50,11 @@ const Salaires = () => {
       ])
       setSalaries(salsRes.data)
       setEtat(etatRes.data)
+      const initialStatuts: { [key: number]: string } = {}
+      etatRes.data.forEach((e: any) => {
+        initialStatuts[e.id] = 'en_cours'
+      })
+      setStatutEtat(initialStatuts)
     } catch (err) {
       console.error(err)
     } finally {
@@ -99,6 +111,29 @@ const Salaires = () => {
     }
   }
 
+  const handleUpdatePeriode = async (id: number) => {
+    try {
+      await api.patch(`/salaires/salaries/${id}/`, {
+        date_debut: editingDateDebut,
+        date_fin: editingDateFin,
+      })
+      setEditingSalarieId(null)
+      fetchData()
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const handleUpdateActionDate = async (id: number) => {
+    try {
+      await api.patch(`/salaires/actions/${id}/`, { date: editingActionDate })
+      setEditingActionId(null)
+      fetchData()
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
   const handleAddCat = () => {
     if (newCat.trim() && !categories.includes(newCat.trim())) {
       setCategories([...categories, newCat.trim()])
@@ -122,6 +157,19 @@ const Salaires = () => {
     border: `1px solid ${active ? '#1a3a6b' : '#e0e0e0'}`,
   })
 
+  const btnEdit = {
+    padding: '2px 6px', background: '#e8f4fb', color: '#0099cc',
+    border: '1px solid #b3d9f0', borderRadius: '3px', fontSize: '10px', cursor: 'pointer'
+  }
+  const btnOk = {
+    padding: '4px 8px', background: '#1a3a6b', color: '#fff',
+    border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer'
+  }
+  const btnCancel = {
+    padding: '4px 8px', background: '#fff', color: '#555',
+    border: '1px solid #e0e0e0', borderRadius: '4px', fontSize: '11px', cursor: 'pointer'
+  }
+
   return (
     <Layout>
       <div style={{ padding: '20px' }}>
@@ -132,38 +180,30 @@ const Salaires = () => {
             <h1 style={{ fontSize: '18px', fontWeight: '700', color: '#1a3a6b' }}>Gestion des salaires</h1>
             <p style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>Suivi des salaires et actions</p>
           </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <select
-              value={`${annee}-${mois}`}
-              onChange={e => {
-                const [a, m] = e.target.value.split('-')
-                setAnnee(parseInt(a))
-                setMois(parseInt(m))
-              }}
-              style={{ padding: '8px 12px', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', outline: 'none' }}
-            >
-              {[2025, 2026, 2027].map(a =>
-                MOIS_LABELS.map((label, i) => (
-                  <option key={`${a}-${i + 1}`} value={`${a}-${i + 1}`}>
-                    {label} {a}
-                  </option>
-                ))
-              )}
-            </select>
-          </div>
+          <select
+            value={`${annee}-${mois}`}
+            onChange={e => {
+              const [a, m] = e.target.value.split('-')
+              setAnnee(parseInt(a))
+              setMois(parseInt(m))
+            }}
+            style={{ padding: '8px 12px', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', outline: 'none' }}
+          >
+            {[2025, 2026, 2027].map(a =>
+              MOIS_LABELS.map((label, i) => (
+                <option key={`${a}-${i + 1}`} value={`${a}-${i + 1}`}>
+                  {label} {a}
+                </option>
+              ))
+            )}
+          </select>
         </div>
 
         {/* TABS */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-          <button style={tabStyle(activeTab === 'etat')} onClick={() => setActiveTab('etat')}>
-            État des salaires
-          </button>
-          <button style={tabStyle(activeTab === 'salaries')} onClick={() => setActiveTab('salaries')}>
-            Add Salarié
-          </button>
-          <button style={tabStyle(activeTab === 'actions')} onClick={() => setActiveTab('actions')}>
-            ADD Actions
-          </button>
+          <button style={tabStyle(activeTab === 'etat')} onClick={() => setActiveTab('etat')}>État des salaires</button>
+          <button style={tabStyle(activeTab === 'salaries')} onClick={() => setActiveTab('salaries')}>Add Salarié</button>
+          <button style={tabStyle(activeTab === 'actions')} onClick={() => setActiveTab('actions')}>ADD Actions</button>
         </div>
 
         {loading ? (
@@ -194,18 +234,25 @@ const Salaires = () => {
                           {e.ecart.toLocaleString('fr-FR')} DH
                         </td>
                         <td style={{ padding: '10px 14px' }}>
-                          <span style={{
-                            padding: '2px 8px', borderRadius: '4px', fontSize: '11px',
-                            background: '#fff3e0', color: '#e65100'
-                          }}>En cours</span>
+                          <select
+                            value={statutEtat[e.id] || 'en_cours'}
+                            onChange={ev => setStatutEtat({ ...statutEtat, [e.id]: ev.target.value })}
+                            style={{
+                              padding: '3px 8px', borderRadius: '4px', fontSize: '11px',
+                              border: '1px solid #e0e0e0', cursor: 'pointer',
+                              background: statutEtat[e.id] === 'traitee' ? '#e8f8ef' : '#fff3e0',
+                              color: statutEtat[e.id] === 'traitee' ? '#1a7a40' : '#e65100',
+                            }}
+                          >
+                            <option value="en_cours">En cours</option>
+                            <option value="traitee">Traitée</option>
+                          </select>
                         </td>
                       </tr>
                     ))}
                     {etat.length === 0 && (
                       <tr>
-                        <td colSpan={8} style={{ padding: '40px', textAlign: 'center', color: '#aaa' }}>
-                          Aucun salarié
-                        </td>
+                        <td colSpan={8} style={{ padding: '40px', textAlign: 'center', color: '#aaa' }}>Aucun salarié</td>
                       </tr>
                     )}
                   </tbody>
@@ -269,9 +316,43 @@ const Salaires = () => {
                     <tbody>
                       {salaries.map(s => (
                         <tr key={s.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                          <td style={{ padding: '10px 14px', color: '#555' }}>
-                            {new Date(s.date_debut).toLocaleDateString('fr-FR')} au {new Date(s.date_fin).toLocaleDateString('fr-FR')}
+
+                          {/* PÉRIODE MODIFIABLE */}
+                          <td style={{ padding: '10px 14px' }}>
+                            {editingSalarieId === s.id ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                  <span style={{ fontSize: '10px', color: '#888', width: '50px' }}>Début :</span>
+                                  <input type="date" value={editingDateDebut} onChange={e => setEditingDateDebut(e.target.value)}
+                                    style={{ ...inputStyle, width: '140px', padding: '4px 8px' }} />
+                                </div>
+                                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                  <span style={{ fontSize: '10px', color: '#888', width: '50px' }}>Fin :</span>
+                                  <input type="date" value={editingDateFin} onChange={e => setEditingDateFin(e.target.value)}
+                                    style={{ ...inputStyle, width: '140px', padding: '4px 8px' }} />
+                                </div>
+                                <div style={{ display: 'flex', gap: '4px', marginTop: '2px' }}>
+                                  <button onClick={() => handleUpdatePeriode(s.id)} style={btnOk}>✓ OK</button>
+                                  <button onClick={() => setEditingSalarieId(null)} style={btnCancel}>✕</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ color: '#555' }}>
+                                  {new Date(s.date_debut).toLocaleDateString('fr-FR')} au {new Date(s.date_fin).toLocaleDateString('fr-FR')}
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    setEditingSalarieId(s.id)
+                                    setEditingDateDebut(s.date_debut)
+                                    setEditingDateFin(s.date_fin)
+                                  }}
+                                  style={btnEdit}
+                                >✏️</button>
+                              </div>
+                            )}
                           </td>
+
                           <td style={{ padding: '10px 14px', fontWeight: '500', color: '#2c2c2c' }}>{s.nom} {s.prenom}</td>
                           <td style={{ padding: '10px 14px', fontWeight: '600', color: '#0099cc' }}>{parseFloat(s.salaire_base).toLocaleString('fr-FR')} DH</td>
                           <td style={{ padding: '10px 14px' }}>
@@ -388,15 +469,43 @@ const Salaires = () => {
                           <td style={{ padding: '10px 14px', fontWeight: '600', color: a.type === 'entree' ? '#1a7a40' : '#c0392b' }}>
                             {a.type === 'entree' ? '+' : '-'}{parseFloat(a.montant).toLocaleString('fr-FR')} DH
                           </td>
-                          <td style={{ padding: '10px 14px', color: '#555' }}>{new Date(a.date).toLocaleDateString('fr-FR')}</td>
+
+                          {/* DATE MODIFIABLE */}
                           <td style={{ padding: '10px 14px' }}>
-                            <span style={{
-                              padding: '2px 8px', borderRadius: '4px', fontSize: '11px',
-                              background: a.statut === 'traitee' ? '#e8f8ef' : '#fff3e0',
-                              color: a.statut === 'traitee' ? '#1a7a40' : '#e65100',
-                            }}>
-                              {a.statut === 'traitee' ? 'Traitée' : 'En cours'}
-                            </span>
+                            {editingActionId === a.id ? (
+                              <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                <input type="date" value={editingActionDate} onChange={e => setEditingActionDate(e.target.value)}
+                                  style={{ ...inputStyle, width: '130px', padding: '4px 8px' }} />
+                                <button onClick={() => handleUpdateActionDate(a.id)} style={btnOk}>✓</button>
+                                <button onClick={() => setEditingActionId(null)} style={btnCancel}>✕</button>
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ color: '#555' }}>{new Date(a.date).toLocaleDateString('fr-FR')}</span>
+                                <button onClick={() => { setEditingActionId(a.id); setEditingActionDate(a.date) }} style={btnEdit}>✏️</button>
+                              </div>
+                            )}
+                          </td>
+
+                          <td style={{ padding: '10px 14px' }}>
+                            <select
+                              value={a.statut}
+                              onChange={async e => {
+                                try {
+                                  await api.patch(`/salaires/actions/${a.id}/`, { statut: e.target.value })
+                                  fetchData()
+                                } catch (err) { console.error(err) }
+                              }}
+                              style={{
+                                padding: '3px 8px', borderRadius: '4px', fontSize: '11px',
+                                border: '1px solid #e0e0e0', cursor: 'pointer',
+                                background: a.statut === 'traitee' ? '#e8f8ef' : '#fff3e0',
+                                color: a.statut === 'traitee' ? '#1a7a40' : '#e65100',
+                              }}
+                            >
+                              <option value="en_cours">En cours</option>
+                              <option value="traitee">Traitée</option>
+                            </select>
                           </td>
                           <td style={{ padding: '10px 14px' }}>
                             <button onClick={async () => {
