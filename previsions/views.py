@@ -52,27 +52,23 @@ def ecarts_view(request):
 
     previsions = Prevision.objects.filter(mois=mois, annee=annee)
 
-    solde_obj, _ = SoldeInitial.objects.get_or_create(id=1, defaults={'montant': 0})
-    solde_base = float(solde_obj.montant)
-
-    previsions_traitees = Prevision.objects.filter(statut='traitee')
-    for p in previsions_traitees:
-        if p.type == 'entree':
-            solde_base += float(p.montant)
-        else:
-            solde_base -= float(p.montant)
+    # Solde basé sur actions banque traitées uniquement
+    actions = ActionBanque.objects.filter(statut='traitee')
+    entrees = sum(float(a.montant) for a in actions if a.type == 'entree')
+    sorties = sum(float(a.montant) for a in actions if a.type == 'sortie')
+    solde_base = entrees - sorties
 
     ecarts = {}
     solde_courant = solde_base
 
     for semaine in [1, 2, 3, 4]:
         prevs_semaine = previsions.filter(semaine=semaine)
-        entrees = sum(float(p.montant) for p in prevs_semaine if p.type == 'entree')
-        sorties = sum(float(p.montant) for p in prevs_semaine if p.type == 'sortie')
-        ecart = solde_courant + entrees - sorties
+        entrees_s = sum(float(p.montant) for p in prevs_semaine if p.type == 'entree')
+        sorties_s = sum(float(p.montant) for p in prevs_semaine if p.type == 'sortie')
+        ecart = solde_courant + entrees_s - sorties_s
         ecarts[f'semaine_{semaine}'] = {
-            'entrees': entrees,
-            'sorties': sorties,
+            'entrees': entrees_s,
+            'sorties': sorties_s,
             'ecart': ecart,
             'solde_debut': solde_courant,
         }

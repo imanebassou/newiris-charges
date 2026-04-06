@@ -40,7 +40,7 @@ def etat_salaires_view(request):
         entrees = sum(float(a.montant) for a in actions if a.type == 'entree')
         sorties = sum(float(a.montant) for a in actions if a.type == 'sortie')
         salaire_final = float(salarie.salaire_base) + entrees - sorties
-        ecart = float(salarie.salaire_base) - salaire_final
+        ecart = salaire_final - float(salarie.salaire_base)
 
         result.append({
             'id': salarie.id,

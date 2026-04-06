@@ -7,6 +7,13 @@ const MOIS_LABELS = [
   'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
 ]
 
+const SEMAINES_DEFAULT = [
+  { debut: 1, fin: 7 },
+  { debut: 8, fin: 14 },
+  { debut: 15, fin: 22 },
+  { debut: 23, fin: 31 },
+]
+
 const Previsions = () => {
   document.title = 'Prévisions — Newiris'
 
@@ -33,6 +40,9 @@ const Previsions = () => {
   const [newCat, setNewCat] = useState('')
   const [showAddPerson, setShowAddPerson] = useState(false)
   const [newPerson, setNewPerson] = useState('')
+  const [semaines, setSemaines] = useState(SEMAINES_DEFAULT)
+  const [editingSemaine, setEditingSemaine] = useState<number | null>(null)
+  const [editDebutFin, setEditDebutFin] = useState({ debut: '', fin: '' })
 
   const fetchData = async () => {
     try {
@@ -135,20 +145,21 @@ const Previsions = () => {
     return { bg: '#fff3e0', color: '#e65100' }
   }
 
-  const getSemaineStatus = (semaine: number) => {
-    const currentWeek = Math.ceil(now.getDate() / 7)
+  const getCurrentSemaine = () => {
+    const day = now.getDate()
     const currentMois = now.getMonth() + 1
     const currentAnnee = now.getFullYear()
-    if (annee !== currentAnnee || mois !== currentMois) return 'prevision'
-    if (semaine < currentWeek) return 'cloturee'
-    if (semaine === currentWeek) return 'en_cours'
-    return 'prevision'
+    if (annee !== currentAnnee || mois !== currentMois) return 0
+    for (let i = 0; i < semaines.length; i++) {
+      if (day >= semaines[i].debut && day <= semaines[i].fin) return i + 1
+    }
+    return 0
   }
 
-  const getSemaineLabel = (semaine: number) => {
-    const status = getSemaineStatus(semaine)
-    if (status === 'cloturee') return { label: 'Clôturée', color: '#555', bg: '#e8eaed' }
-    if (status === 'en_cours') return { label: 'En cours', color: '#e65100', bg: '#fff3e0' }
+  const getSemaineLabel = (semaineNum: number) => {
+    const current = getCurrentSemaine()
+    if (semaineNum < current) return { label: 'Clôturée', color: '#555', bg: '#e8eaed' }
+    if (semaineNum === current) return { label: 'En cours', color: '#e65100', bg: '#fff3e0' }
     return { label: 'Prévision', color: '#c0392b', bg: '#fdeaea' }
   }
 
@@ -215,6 +226,19 @@ const Previsions = () => {
     )
   }
 
+  const editInputStyle = {
+    width: '38px',
+    padding: '3px 4px',
+    borderRadius: '4px',
+    border: '1px solid rgba(255,255,255,0.4)',
+    fontSize: '12px',
+    textAlign: 'center' as const,
+    color: '#fff',
+    fontWeight: '700' as const,
+    background: 'rgba(255,255,255,0.15)',
+    outline: 'none',
+  }
+
   return (
     <Layout>
       <div style={{ padding: '20px' }}>
@@ -248,16 +272,11 @@ const Previsions = () => {
         <div style={{
           background: '#fff', borderRadius: '8px', padding: '16px',
           border: '1px solid #e8eaed', borderTop: '3px solid #1a3a6b',
-          marginBottom: '20px', display: 'inline-block', minWidth: '250px'
+          marginBottom: '20px', display: 'inline-block', minWidth: '200px'
         }}>
-          <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>
-            Solde (basé sur les prévisions traitées)
-          </div>
+          <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Solde (basé sur les prévisions traitées)</div>
           <div style={{ fontSize: '22px', fontWeight: '700', color: '#1a3a6b' }}>
             {soldeBase.toLocaleString('fr-FR')} DH
-          </div>
-          <div style={{ fontSize: '10px', color: '#aaa', marginTop: '4px' }}>
-            Mis à jour automatiquement selon les statuts
           </div>
         </div>
 
@@ -352,11 +371,13 @@ const Previsions = () => {
           <div style={{ padding: '40px', textAlign: 'center', color: '#888' }}>Chargement...</div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
-            {[1, 2, 3, 4].map(semaine => {
+            {[0, 1, 2, 3].map(idx => {
+              const semaine = idx + 1
               const semaineInfo = getSemaineLabel(semaine)
               const ecartSemaine = ecarts?.[`semaine_${semaine}`]
               const entrees = prevsBySemaineAndType(semaine, 'entree')
               const sorties = prevsBySemaineAndType(semaine, 'sortie')
+              const s = semaines[idx]
 
               return (
                 <div
@@ -374,16 +395,58 @@ const Previsions = () => {
                     background: '#1a3a6b', padding: '10px 12px',
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                   }}>
-                    <span style={{ color: '#fff', fontWeight: '700', fontSize: '13px' }}>Semaine {semaine}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }}>
+                      <span style={{ color: '#fff', fontWeight: '700', fontSize: '12px', whiteSpace: 'nowrap' }}>S{semaine}</span>
+                      {editingSemaine === idx ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          <input
+                            type="number" min="1" max="31"
+                            value={editDebutFin.debut}
+                            onChange={e => setEditDebutFin({ ...editDebutFin, debut: e.target.value })}
+                            style={editInputStyle}
+                          />
+                          <span style={{ color: '#fff', fontSize: '10px' }}>au</span>
+                          <input
+                            type="number" min="1" max="31"
+                            value={editDebutFin.fin}
+                            onChange={e => setEditDebutFin({ ...editDebutFin, fin: e.target.value })}
+                            style={editInputStyle}
+                          />
+                          <button onClick={() => {
+                            const newSemaines = [...semaines]
+                            newSemaines[idx] = { debut: parseInt(editDebutFin.debut), fin: parseInt(editDebutFin.fin) }
+                            setSemaines(newSemaines)
+                            setEditingSemaine(null)
+                          }} style={{
+                            padding: '2px 6px', background: '#0099cc', color: '#fff',
+                            border: 'none', borderRadius: '3px', fontSize: '10px', cursor: 'pointer', fontWeight: '600'
+                          }}>OK</button>
+                          <button onClick={() => setEditingSemaine(null)} style={{
+                            padding: '2px 6px', background: '#e84c3d', color: '#fff',
+                            border: 'none', borderRadius: '3px', fontSize: '10px', cursor: 'pointer', fontWeight: '600'
+                          }}>X</button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ color: '#ccc', fontSize: '11px', fontWeight: '600' }}>
+                            du {s.debut} au {s.fin}
+                          </span>
+                          <button
+                            onClick={() => { setEditingSemaine(idx); setEditDebutFin({ debut: String(s.debut), fin: String(s.fin) }) }}
+                            style={{ background: 'none', border: 'none', color: '#ccc', fontSize: '11px', cursor: 'pointer', padding: '0 2px' }}
+                          >✏️</button>
+                        </div>
+                      )}
+                    </div>
                     <span style={{
                       background: semaineInfo.bg, color: semaineInfo.color,
-                      fontSize: '10px', padding: '2px 8px', borderRadius: '4px', fontWeight: '600'
+                      fontSize: '10px', padding: '2px 8px', borderRadius: '4px',
+                      fontWeight: '600', whiteSpace: 'nowrap', marginLeft: '4px'
                     }}>{semaineInfo.label}</span>
                   </div>
 
                   <div style={{ padding: '8px' }}>
-
-                    {/* SECTION ENTREES */}
+                    {/* ENTREES */}
                     <div style={{
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                       padding: '6px 8px', background: '#e8f8ef', borderRadius: '6px',
@@ -392,20 +455,16 @@ const Previsions = () => {
                       <span style={{ fontSize: '11px', fontWeight: '700', color: '#1a7a40' }}>ENTREES</span>
                       <button onClick={() => setShowForm({ semaine, type: 'entree' })} style={{
                         padding: '2px 8px', background: '#1a7a40', color: '#fff',
-                        border: 'none', borderRadius: '4px', fontSize: '10px',
-                        cursor: 'pointer', fontWeight: '600'
+                        border: 'none', borderRadius: '4px', fontSize: '10px', cursor: 'pointer', fontWeight: '600'
                       }}>+ Ajouter</button>
                     </div>
-
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
                       {entrees.length === 0 ? (
-                        <div style={{ textAlign: 'center', color: '#aaa', fontSize: '11px', padding: '8px 0', fontStyle: 'italic' }}>
-                          Aucune entrée
-                        </div>
+                        <div style={{ textAlign: 'center', color: '#aaa', fontSize: '11px', padding: '8px 0', fontStyle: 'italic' }}>Aucune entrée</div>
                       ) : entrees.map(prev => renderCard(prev))}
                     </div>
 
-                    {/* SECTION SORTIES */}
+                    {/* SORTIES */}
                     <div style={{
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                       padding: '6px 8px', background: '#fdeaea', borderRadius: '6px',
@@ -414,16 +473,12 @@ const Previsions = () => {
                       <span style={{ fontSize: '11px', fontWeight: '700', color: '#c0392b' }}>SORTIES</span>
                       <button onClick={() => setShowForm({ semaine, type: 'sortie' })} style={{
                         padding: '2px 8px', background: '#c0392b', color: '#fff',
-                        border: 'none', borderRadius: '4px', fontSize: '10px',
-                        cursor: 'pointer', fontWeight: '600'
+                        border: 'none', borderRadius: '4px', fontSize: '10px', cursor: 'pointer', fontWeight: '600'
                       }}>+ Ajouter</button>
                     </div>
-
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
                       {sorties.length === 0 ? (
-                        <div style={{ textAlign: 'center', color: '#aaa', fontSize: '11px', padding: '8px 0', fontStyle: 'italic' }}>
-                          Aucune sortie
-                        </div>
+                        <div style={{ textAlign: 'center', color: '#aaa', fontSize: '11px', padding: '8px 0', fontStyle: 'italic' }}>Aucune sortie</div>
                       ) : sorties.map(prev => renderCard(prev))}
                     </div>
                   </div>

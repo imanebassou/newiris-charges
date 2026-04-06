@@ -4,46 +4,42 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from .models import SoldeInitial, ActionBanque
 from .serializers import SoldeInitialSerializer, ActionBanqueSerializer
-from decimal import Decimal
+from previsions.models import Prevision
 
 
-@api_view(['GET', 'PUT'])
+@api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def solde_view(request):
-    solde, _ = SoldeInitial.objects.get_or_create(id=1, defaults={'montant': 0})
-
-    if request.method == 'GET':
-        serializer = SoldeInitialSerializer(solde)
-        return Response(serializer.data)
-
-    elif request.method == 'PUT':
-        serializer = SoldeInitialSerializer(solde, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    solde_obj, _ = SoldeInitial.objects.get_or_create(id=1, defaults={'montant': 0})
+    serializer = SoldeInitialSerializer(solde_obj)
+    return Response(serializer.data)
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def solde_calcule_view(request):
+    # Solde de base
     solde_obj, _ = SoldeInitial.objects.get_or_create(id=1, defaults={'montant': 0})
-    solde_base = solde_obj.montant
-    date_modif = solde_obj.date_modification
+    solde_base = float(solde_obj.montant)
 
-    actions_apres = ActionBanque.objects.filter(date__gte=date_modif.date())
+    # Actions banque traitées
+    actions = ActionBanque.objects.filter(statut='traitee')
+    entrees_banque = sum(float(a.montant) for a in actions if a.type == 'entree')
+    sorties_banque = sum(float(a.montant) for a in actions if a.type == 'sortie')
 
-    entrees = sum(a.montant for a in actions_apres if a.type == 'entree')
-    sorties = sum(a.montant for a in actions_apres if a.type == 'sortie')
+    # Prévisions traitées
+    previsions_traitees = Prevision.objects.filter(statut='traitee')
+    entrees_prev = sum(float(p.montant) for p in previsions_traitees if p.type == 'entree')
+    sorties_prev = sum(float(p.montant) for p in previsions_traitees if p.type == 'sortie')
 
-    solde_final = solde_base + Decimal(str(entrees)) - Decimal(str(sorties))
+    total_entrees = entrees_banque + entrees_prev
+    total_sorties = sorties_banque + sorties_prev
+    solde_final = solde_base + total_entrees - total_sorties
 
     return Response({
-        'solde_base': float(solde_base),
-        'solde_final': float(solde_final),
-        'date_modification': date_modif,
-        'entrees': float(entrees),
-        'sorties': float(sorties),
+        'solde_final': solde_final,
+        'entrees': total_entrees,
+        'sorties': total_sorties,
     })
 
 

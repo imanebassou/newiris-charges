@@ -87,6 +87,21 @@ const Fournisseurs = () => {
     }
   }
 
+  const handleRenouveler = async (id: number) => {
+    try {
+      const today = new Date()
+      const newDate = new Date(today.setDate(today.getDate() + 180))
+      const dateStr = newDate.toISOString().split('T')[0]
+      await api.patch(`/fournisseurs/${id}/`, {
+        date_fin_rf: dateStr,
+        etat_regularite_override: 'renouvelee'
+      })
+      fetchData()
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
   const getEtatStyle = (etat: string) => {
     if (etat === 'en_cours') return { bg: '#e8f8ef', color: '#1a7a40', label: 'En cours' }
     if (etat === 'renouvelee') return { bg: '#e8f4fb', color: '#0099cc', label: 'Renouvelée' }
@@ -145,13 +160,13 @@ const Fournisseurs = () => {
                     }} required={!showAddType}>
                     <option value="">Sélectionner un type...</option>
                     {typesContrat.map(t => <option key={t} value={t}>{t}</option>)}
-                    <option value="__add_type__">➕ Add New</option>
+                    <option value="__add_type__">+ Add New</option>
                   </select>
                   {showAddType && (
                     <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
                       <input style={{ ...inputStyle, flex: 1 }} value={newType} onChange={e => setNewType(e.target.value)} placeholder="Nouveau type..." onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddType())} />
                       <button type="button" onClick={handleAddType} style={{ padding: '8px 12px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>OK</button>
-                      <button type="button" onClick={() => { setShowAddType(false); setNewType('') }} style={{ padding: '8px 12px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>✕</button>
+                      <button type="button" onClick={() => { setShowAddType(false); setNewType('') }} style={{ padding: '8px 12px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>X</button>
                     </div>
                   )}
                 </div>
@@ -237,11 +252,18 @@ const Fournisseurs = () => {
                         </select>
                       </td>
 
+                      {/* ACTIONS */}
                       <td style={{ padding: '10px 14px' }}>
-                        <button onClick={() => handleDelete(f.id)} style={{
-                          padding: '4px 10px', background: '#fdeaea', color: '#c0392b',
-                          border: '1px solid #f5c6c6', borderRadius: '4px', fontSize: '11px', cursor: 'pointer'
-                        }}>Supprimer</button>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button onClick={() => handleRenouveler(f.id)} style={{
+                            padding: '4px 10px', background: '#e8f4fb', color: '#0099cc',
+                            border: '1px solid #b3d9f0', borderRadius: '4px', fontSize: '11px', cursor: 'pointer'
+                          }}>Renouveler</button>
+                          <button onClick={() => handleDelete(f.id)} style={{
+                            padding: '4px 10px', background: '#fdeaea', color: '#c0392b',
+                            border: '1px solid #f5c6c6', borderRadius: '4px', fontSize: '11px', cursor: 'pointer'
+                          }}>Supprimer</button>
+                        </div>
                       </td>
                     </tr>
                   )

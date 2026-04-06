@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import api from '../api/axios'
+import SortableTable from '../components/SortableTable'
 
 const categoriesBanque = [
   'Loyer', 'Électricité', 'Eau', 'Internet', 'Téléphone',
@@ -25,7 +26,7 @@ const Banque = () => {
   const fetchData = async () => {
     try {
       const actionsRes = await api.get('/banque/actions/')
-setActions(actionsRes.data)
+      setActions(actionsRes.data)
     } catch (err) {
       console.error(err)
     } finally {
@@ -56,9 +57,9 @@ setActions(actionsRes.data)
   }
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Supprimer cette action ?')) return
     try {
       await api.delete(`/banque/actions/${id}/`)
+      setActions(prev => prev.filter(a => a.id !== id))
       fetchData()
     } catch (err) {
       console.error(err)
@@ -80,7 +81,6 @@ setActions(actionsRes.data)
     fontSize: '13px', outline: 'none',
   }
 
-  // Calcul local basé sur statut traitée
   const totalEntrees = actions
     .filter(a => a.type === 'entree' && a.statut === 'traitee')
     .reduce((sum, a) => sum + parseFloat(a.montant), 0)
@@ -111,8 +111,7 @@ setActions(actionsRes.data)
         <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
           <div style={{
             background: '#fff', borderRadius: '8px', padding: '16px',
-            border: '1px solid #e8eaed', borderTop: '3px solid #1a3a6b',
-            minWidth: '200px'
+            border: '1px solid #e8eaed', borderTop: '3px solid #1a3a6b', minWidth: '200px'
           }}>
             <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Solde en DH</div>
             <div style={{ fontSize: '22px', fontWeight: '700', color: '#1a3a6b' }}>
@@ -124,8 +123,7 @@ setActions(actionsRes.data)
           </div>
           <div style={{
             background: '#fff', borderRadius: '8px', padding: '16px',
-            border: '1px solid #e8eaed', borderTop: '3px solid #1a7a40',
-            minWidth: '180px'
+            border: '1px solid #e8eaed', borderTop: '3px solid #1a7a40', minWidth: '180px'
           }}>
             <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Total entrées traitées</div>
             <div style={{ fontSize: '22px', fontWeight: '700', color: '#1a7a40' }}>
@@ -134,8 +132,7 @@ setActions(actionsRes.data)
           </div>
           <div style={{
             background: '#fff', borderRadius: '8px', padding: '16px',
-            border: '1px solid #e8eaed', borderTop: '3px solid #c0392b',
-            minWidth: '180px'
+            border: '1px solid #e8eaed', borderTop: '3px solid #c0392b', minWidth: '180px'
           }}>
             <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Total sorties traitées</div>
             <div style={{ fontSize: '22px', fontWeight: '700', color: '#c0392b' }}>
@@ -220,82 +217,86 @@ setActions(actionsRes.data)
         )}
 
         {/* TABLEAU */}
-        <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e8eaed', overflow: 'hidden' }}>
-          {loading ? (
-            <div style={{ padding: '40px', textAlign: 'center', color: '#888' }}>Chargement...</div>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-              <thead>
-                <tr style={{ background: '#f8f9fa' }}>
-                  {['#', 'Type', 'Date', 'Titre', 'Description', 'Montant', 'Catégorie', 'Statut', 'Actions'].map(h => (
-                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#888', fontWeight: '500', borderBottom: '1px solid #e8eaed' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {actions.map(action => (
-                  <tr key={action.id} style={{
-                    borderBottom: '1px solid #f5f5f5',
-                    opacity: action.statut === 'en_cours' ? 0.7 : 1,
-                  }}>
-                    <td style={{ padding: '10px 14px', color: '#aaa' }}>{action.id}</td>
-                    <td style={{ padding: '10px 14px' }}>
-                      <span style={{
-                        padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600',
-                        background: action.type === 'entree' ? '#e8f8ef' : '#fdeaea',
-                        color: action.type === 'entree' ? '#1a7a40' : '#c0392b',
-                      }}>
-                        {action.type === 'entree' ? 'Entrée' : 'Sortie'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '10px 14px', color: '#555' }}>{new Date(action.date).toLocaleDateString('fr-FR')}</td>
-                    <td style={{ padding: '10px 14px', fontWeight: '500', color: '#2c2c2c' }}>{action.titre}</td>
-                    <td style={{ padding: '10px 14px', color: '#555' }}>{action.description || '—'}</td>
-                    <td style={{ padding: '10px 14px', fontWeight: '600', color: action.statut === 'en_cours' ? '#aaa' : action.type === 'entree' ? '#1a7a40' : '#c0392b' }}>
-                      {action.type === 'entree' ? '+' : '-'}{parseFloat(action.montant).toLocaleString('fr-FR')} DH
-                      {action.statut === 'en_cours' && (
-                        <span style={{ fontSize: '9px', color: '#aaa', marginLeft: '4px' }}>(en cours)</span>
-                      )}
-                    </td>
-                    <td style={{ padding: '10px 14px', color: '#555' }}>{action.categorie || '—'}</td>
-                    <td style={{ padding: '10px 14px' }}>
-                      <select
-                        value={action.statut}
-                        onChange={async e => {
-                          try {
-                            await api.patch(`/banque/actions/${action.id}/`, { statut: e.target.value })
-                            fetchData()
-                          } catch (err) { console.error(err) }
-                        }}
-                        style={{
-                          padding: '3px 8px', borderRadius: '4px', fontSize: '11px',
-                          border: '1px solid #e0e0e0', cursor: 'pointer',
-                          background: action.statut === 'traitee' ? '#e8f8ef' : '#fff3e0',
-                          color: action.statut === 'traitee' ? '#1a7a40' : '#e65100',
-                        }}>
-                        <option value="en_cours">En cours</option>
-                        <option value="traitee">Traitée</option>
-                      </select>
-                    </td>
-                    <td style={{ padding: '10px 14px' }}>
-                      <button onClick={() => handleDelete(action.id)} style={{
-                        padding: '4px 10px', background: '#fdeaea', color: '#c0392b',
-                        border: '1px solid #f5c6c6', borderRadius: '4px', fontSize: '11px', cursor: 'pointer'
-                      }}>Supprimer</button>
-                    </td>
-                  </tr>
-                ))}
-                {actions.length === 0 && (
-                  <tr>
-                    <td colSpan={9} style={{ padding: '40px', textAlign: 'center', color: '#aaa' }}>
-                      Aucune action bancaire
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          )}
-        </div>
+        {loading ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#888' }}>Chargement...</div>
+        ) : (
+          <SortableTable
+            emptyMessage="Aucune action bancaire"
+            columns={[
+              {
+                key: 'id', label: '#',
+                render: (_v: any, row: any) => <span style={{ color: '#aaa' }}>{row.id}</span>
+              },
+              {
+                key: 'type', label: 'Type',
+                render: (_v: any, row: any) => (
+                  <span style={{
+                    padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600',
+                    background: row.type === 'entree' ? '#e8f8ef' : '#fdeaea',
+                    color: row.type === 'entree' ? '#1a7a40' : '#c0392b',
+                  }}>{row.type === 'entree' ? 'Entrée' : 'Sortie'}</span>
+                )
+              },
+              {
+                key: 'date', label: 'Date',
+                render: (_v: any, row: any) => <span style={{ color: '#555' }}>{new Date(row.date).toLocaleDateString('fr-FR')}</span>
+              },
+              {
+                key: 'titre', label: 'Titre',
+                render: (_v: any, row: any) => <span style={{ fontWeight: '500', color: '#2c2c2c' }}>{row.titre}</span>
+              },
+              {
+                key: 'description', label: 'Description',
+                render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.description || '—'}</span>
+              },
+              {
+                key: 'montant', label: 'Montant',
+                render: (_v: any, row: any) => (
+                  <span style={{ fontWeight: '600', color: row.statut === 'en_cours' ? '#aaa' : row.type === 'entree' ? '#1a7a40' : '#c0392b' }}>
+                    {row.type === 'entree' ? '+' : '-'}{parseFloat(row.montant).toLocaleString('fr-FR')} DH
+                    {row.statut === 'en_cours' && <span style={{ fontSize: '9px', color: '#aaa', marginLeft: '4px' }}>(en cours)</span>}
+                  </span>
+                )
+              },
+              {
+                key: 'categorie', label: 'Catégorie',
+                render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.categorie || '—'}</span>
+              },
+              {
+                key: 'statut', label: 'Statut',
+                render: (_v: any, row: any) => (
+                  <select
+                    value={row.statut}
+                    onChange={async e => {
+                      try {
+                        await api.patch(`/banque/actions/${row.id}/`, { statut: e.target.value })
+                        fetchData()
+                      } catch (err) { console.error(err) }
+                    }}
+                    style={{
+                      padding: '3px 8px', borderRadius: '4px', fontSize: '11px',
+                      border: '1px solid #e0e0e0', cursor: 'pointer',
+                      background: row.statut === 'traitee' ? '#e8f8ef' : '#fff3e0',
+                      color: row.statut === 'traitee' ? '#1a7a40' : '#e65100',
+                    }}>
+                    <option value="en_cours">En cours</option>
+                    <option value="traitee">Traitée</option>
+                  </select>
+                )
+              },
+              {
+                key: 'actions', label: 'Actions', sortable: false,
+                render: (_v: any, row: any) => (
+                  <button onClick={() => handleDelete(row.id)} style={{
+                    padding: '4px 10px', background: '#fdeaea', color: '#c0392b',
+                    border: '1px solid #f5c6c6', borderRadius: '4px', fontSize: '11px', cursor: 'pointer'
+                  }}>Supprimer</button>
+                )
+              },
+            ]}
+            data={actions}
+          />
+        )}
       </div>
     </Layout>
   )
