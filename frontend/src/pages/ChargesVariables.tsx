@@ -83,14 +83,13 @@ const ChargesVariables = () => {
   }
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Supprimer cette charge variable ?')) return
-    try {
-      await api.delete(`/charges-variables/${id}/`)
-      fetchData()
-    } catch (err) {
-      console.error(err)
-    }
+  try {
+    await api.delete(`/charges-variables/${id}/`)
+    fetchData()
+  } catch (err) {
+    console.error(err)
   }
+}
 
   const handleStatutChange = async (id: number, statut: string) => {
     try {

@@ -4,7 +4,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from .models import Salarie, ActionSalaire
 from .serializers import SalarieSerializer, ActionSalaireSerializer
-from decimal import Decimal
+import calendar
+from datetime import date
 
 
 class SalarieViewSet(viewsets.ModelViewSet):
@@ -29,13 +30,20 @@ def etat_salaires_view(request):
     result = []
 
     for salarie in salaries:
-        actions = salarie.actions.all()
-
+        # Filtrer par période
         if mois and annee:
-            actions = actions.filter(
-                date__month=mois,
-                date__year=annee
-            )
+            mois_int = int(mois)
+            annee_int = int(annee)
+            last_day = calendar.monthrange(annee_int, mois_int)[1]
+            mois_debut = date(annee_int, mois_int, 1)
+            mois_fin = date(annee_int, mois_int, last_day)
+
+            if salarie.date_fin < mois_debut or salarie.date_debut > mois_fin:
+                continue
+
+        actions = salarie.actions.all()
+        if mois and annee:
+            actions = actions.filter(date__month=mois, date__year=annee)
 
         entrees = sum(float(a.montant) for a in actions if a.type == 'entree')
         sorties = sum(float(a.montant) for a in actions if a.type == 'sortie')

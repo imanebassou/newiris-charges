@@ -10,9 +10,7 @@ const Fournisseurs = () => {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editingDate, setEditingDate] = useState('')
-  const [form, setForm] = useState({
-    nom: '', type_contrat: '', date_fin_rf: ''
-  })
+  const [form, setForm] = useState({ nom: '', type_contrat: '', date_fin_rf: '' })
   const [typesContrat, setTypesContrat] = useState<string[]>([
     'CDI', 'CDD', 'Freelance', 'Prestation', 'Maintenance', 'Autres'
   ])
@@ -43,19 +41,14 @@ const Fournisseurs = () => {
       setShowForm(false)
       setForm({ nom: '', type_contrat: '', date_fin_rf: '' })
       fetchData()
-    } catch (err) {
-      console.error(err)
-    }
+    } catch (err) { console.error(err) }
   }
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Supprimer ce fournisseur ?')) return
     try {
       await api.delete(`/fournisseurs/${id}/`)
       fetchData()
-    } catch (err) {
-      console.error(err)
-    }
+    } catch (err) { console.error(err) }
   }
 
   const handleUpdateDate = async (id: number) => {
@@ -64,18 +57,7 @@ const Fournisseurs = () => {
       setEditingId(null)
       setEditingDate('')
       fetchData()
-    } catch (err) {
-      console.error(err)
-    }
-  }
-
-  const handleUpdateEtat = async (id: number, etat: string) => {
-    try {
-      await api.patch(`/fournisseurs/${id}/`, { etat_regularite_override: etat })
-      fetchData()
-    } catch (err) {
-      console.error(err)
-    }
+    } catch (err) { console.error(err) }
   }
 
   const handleAddType = () => {
@@ -92,25 +74,20 @@ const Fournisseurs = () => {
       const today = new Date()
       const newDate = new Date(today.setDate(today.getDate() + 180))
       const dateStr = newDate.toISOString().split('T')[0]
-      await api.patch(`/fournisseurs/${id}/`, {
-        date_fin_rf: dateStr,
-        etat_regularite_override: 'renouvelee'
-      })
+      await api.patch(`/fournisseurs/${id}/`, { date_fin_rf: dateStr })
       fetchData()
-    } catch (err) {
-      console.error(err)
-    }
+    } catch (err) { console.error(err) }
   }
 
   const getEtatStyle = (etat: string) => {
-    if (etat === 'en_cours') return { bg: '#e8f8ef', color: '#1a7a40', label: 'En cours' }
     if (etat === 'renouvelee') return { bg: '#e8f4fb', color: '#0099cc', label: 'Renouvelée' }
+    if (etat === 'en_cours') return { bg: '#e8f8ef', color: '#1a7a40', label: 'En cours' }
     return { bg: '#fdeaea', color: '#c0392b', label: 'Dépassée' }
   }
 
-  const getEcheanceStyle = (echeance: number) => {
-    if (echeance > 30) return '#1a7a40'
-    if (echeance > 0) return '#e65100'
+  const getEcheanceColor = (echeance: number) => {
+    if (echeance >= 180) return '#0099cc'
+    if (echeance >= 1) return '#1a7a40'
     return '#c0392b'
   }
 
@@ -138,13 +115,8 @@ const Fournisseurs = () => {
 
         {/* FORMULAIRE */}
         {showForm && (
-          <div style={{
-            background: '#fff', borderRadius: '8px', padding: '20px',
-            border: '1px solid #e8eaed', marginBottom: '20px'
-          }}>
-            <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#1a3a6b', marginBottom: '16px' }}>
-              Nouveau fournisseur
-            </h3>
+          <div style={{ background: '#fff', borderRadius: '8px', padding: '20px', border: '1px solid #e8eaed', marginBottom: '20px' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#1a3a6b', marginBottom: '16px' }}>Nouveau fournisseur</h3>
             <form onSubmit={handleSubmit}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                 <div>
@@ -199,7 +171,7 @@ const Fournisseurs = () => {
               <tbody>
                 {fournisseurs.map(f => {
                   const etatStyle = getEtatStyle(f.etat_regularite)
-                  const echeanceColor = getEcheanceStyle(f.echeance)
+                  const echeanceColor = getEcheanceColor(f.echeance)
                   return (
                     <tr key={f.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
                       <td style={{ padding: '10px 14px', fontWeight: '500', color: '#2c2c2c' }}>{f.nom}</td>
@@ -209,22 +181,16 @@ const Fournisseurs = () => {
                       <td style={{ padding: '10px 14px' }}>
                         {editingId === f.id ? (
                           <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                            <input
-                              type="date"
-                              value={editingDate}
-                              onChange={e => setEditingDate(e.target.value)}
-                              style={{ ...inputStyle, width: '140px', padding: '4px 8px' }}
-                            />
+                            <input type="date" value={editingDate} onChange={e => setEditingDate(e.target.value)}
+                              style={{ ...inputStyle, width: '140px', padding: '4px 8px' }} />
                             <button onClick={() => handleUpdateDate(f.id)} style={{ padding: '4px 8px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✓</button>
                             <button onClick={() => { setEditingId(null); setEditingDate('') }} style={{ padding: '4px 8px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✕</button>
                           </div>
                         ) : (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{ color: '#555' }}>{new Date(f.date_fin_rf).toLocaleDateString('fr-FR')}</span>
-                            <button
-                              onClick={() => { setEditingId(f.id); setEditingDate(f.date_fin_rf) }}
-                              style={{ padding: '2px 6px', background: '#e8f4fb', color: '#0099cc', border: '1px solid #b3d9f0', borderRadius: '3px', fontSize: '10px', cursor: 'pointer' }}
-                            >✏️</button>
+                            <button onClick={() => { setEditingId(f.id); setEditingDate(f.date_fin_rf) }}
+                              style={{ padding: '2px 6px', background: '#e8f4fb', color: '#0099cc', border: '1px solid #b3d9f0', borderRadius: '3px', fontSize: '10px', cursor: 'pointer' }}>✏️</button>
                           </div>
                         )}
                       </td>
@@ -234,22 +200,15 @@ const Fournisseurs = () => {
                         {f.echeance} j
                       </td>
 
-                      {/* ÉTAT MODIFIABLE */}
+                      {/* ÉTAT AUTO */}
                       <td style={{ padding: '10px 14px' }}>
-                        <select
-                          value={f.etat_regularite}
-                          onChange={e => handleUpdateEtat(f.id, e.target.value)}
-                          style={{
-                            padding: '3px 8px', borderRadius: '4px', fontSize: '11px',
-                            border: '1px solid #e0e0e0', cursor: 'pointer',
-                            background: etatStyle.bg, color: etatStyle.color,
-                            fontWeight: '600'
-                          }}
-                        >
-                          <option value="en_cours">En cours</option>
-                          <option value="depasee">Dépassée</option>
-                          <option value="renouvelee">Renouvelée</option>
-                        </select>
+                        <span style={{
+                          padding: '4px 12px', borderRadius: '4px', fontSize: '11px',
+                          fontWeight: '600', display: 'inline-block',
+                          background: etatStyle.bg, color: etatStyle.color,
+                        }}>
+                          {etatStyle.label}
+                        </span>
                       </td>
 
                       {/* ACTIONS */}
@@ -270,9 +229,7 @@ const Fournisseurs = () => {
                 })}
                 {fournisseurs.length === 0 && (
                   <tr>
-                    <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: '#aaa' }}>
-                      Aucun fournisseur
-                    </td>
+                    <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: '#aaa' }}>Aucun fournisseur</td>
                   </tr>
                 )}
               </tbody>

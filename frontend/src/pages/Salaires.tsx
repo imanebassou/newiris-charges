@@ -14,14 +14,13 @@ const Salaires = () => {
   const [activeTab, setActiveTab] = useState<'etat' | 'salaries' | 'actions'>('etat')
   const [statutEtat, setStatutEtat] = useState<{ [key: number]: string }>({})
 
-  // Editing salarie periode
   const [editingSalarieId, setEditingSalarieId] = useState<number | null>(null)
   const [editingDateDebut, setEditingDateDebut] = useState('')
   const [editingDateFin, setEditingDateFin] = useState('')
 
-  // Editing action date
   const [editingActionId, setEditingActionId] = useState<number | null>(null)
   const [editingActionDate, setEditingActionDate] = useState('')
+  const [editingActionMontant, setEditingActionMontant] = useState('')
 
   const [showAddSalarie, setShowAddSalarie] = useState(false)
   const [showAddAction, setShowAddAction] = useState(false)
@@ -77,9 +76,7 @@ const Salaires = () => {
       setShowAddSalarie(false)
       setFormSalarie({ nom: '', prenom: '', salaire_base: '', date_debut: '', date_fin: '' })
       fetchData()
-    } catch (err) {
-      console.error(err)
-    }
+    } catch (err) { console.error(err) }
   }
 
   const handleAddAction = async (e: React.FormEvent) => {
@@ -96,21 +93,26 @@ const Salaires = () => {
       setShowAddAction(false)
       setFormAction({ salarie: '', type: 'entree', categorie: '', montant: '', date: '', statut: 'en_cours' })
       fetchData()
-    } catch (err) {
-      console.error(err)
-    }
+    } catch (err) { console.error(err) }
   }
 
   const handleDeleteSalarie = async (id: number) => {
-    if (!confirm('Supprimer ce salarié ?')) return
-    try {
-      await api.delete(`/salaires/salaries/${id}/`)
-      fetchData()
-    } catch (err) {
-      console.error(err)
-    }
+  try {
+    await api.delete(`/salaires/salaries/${id}/`)
+    fetchData()
+  } catch (err) {
+    console.error(err)
   }
+}
 
+const handleDeleteAction = async (id: number) => {
+  try {
+    await api.delete(`/salaires/actions/${id}/`)
+    fetchData()
+  } catch (err) {
+    console.error(err)
+  }
+}
   const handleUpdatePeriode = async (id: number) => {
     try {
       await api.patch(`/salaires/salaries/${id}/`, {
@@ -119,19 +121,18 @@ const Salaires = () => {
       })
       setEditingSalarieId(null)
       fetchData()
-    } catch (err) {
-      console.error(err)
-    }
+    } catch (err) { console.error(err) }
   }
 
-  const handleUpdateActionDate = async (id: number) => {
+  const handleUpdateAction = async (id: number) => {
     try {
-      await api.patch(`/salaires/actions/${id}/`, { date: editingActionDate })
+      await api.patch(`/salaires/actions/${id}/`, {
+        date: editingActionDate,
+        montant: parseFloat(editingActionMontant),
+      })
       setEditingActionId(null)
       fetchData()
-    } catch (err) {
-      console.error(err)
-    }
+    } catch (err) { console.error(err) }
   }
 
   const handleAddCat = () => {
@@ -191,9 +192,7 @@ const Salaires = () => {
           >
             {[2025, 2026, 2027].map(a =>
               MOIS_LABELS.map((label, i) => (
-                <option key={`${a}-${i + 1}`} value={`${a}-${i + 1}`}>
-                  {label} {a}
-                </option>
+                <option key={`${a}-${i + 1}`} value={`${a}-${i + 1}`}>{label} {a}</option>
               ))
             )}
           </select>
@@ -252,7 +251,7 @@ const Salaires = () => {
                     ))}
                     {etat.length === 0 && (
                       <tr>
-                        <td colSpan={8} style={{ padding: '40px', textAlign: 'center', color: '#aaa' }}>Aucun salarié</td>
+                        <td colSpan={8} style={{ padding: '40px', textAlign: 'center', color: '#aaa' }}>Aucun salarié pour ce mois</td>
                       </tr>
                     )}
                   </tbody>
@@ -316,8 +315,6 @@ const Salaires = () => {
                     <tbody>
                       {salaries.map(s => (
                         <tr key={s.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
-
-                          {/* PÉRIODE MODIFIABLE */}
                           <td style={{ padding: '10px 14px' }}>
                             {editingSalarieId === s.id ? (
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -341,18 +338,14 @@ const Salaires = () => {
                                 <span style={{ color: '#555' }}>
                                   {new Date(s.date_debut).toLocaleDateString('fr-FR')} au {new Date(s.date_fin).toLocaleDateString('fr-FR')}
                                 </span>
-                                <button
-                                  onClick={() => {
-                                    setEditingSalarieId(s.id)
-                                    setEditingDateDebut(s.date_debut)
-                                    setEditingDateFin(s.date_fin)
-                                  }}
-                                  style={btnEdit}
-                                >✏️</button>
+                                <button onClick={() => {
+                                  setEditingSalarieId(s.id)
+                                  setEditingDateDebut(s.date_debut)
+                                  setEditingDateFin(s.date_fin)
+                                }} style={btnEdit}>✏️</button>
                               </div>
                             )}
                           </td>
-
                           <td style={{ padding: '10px 14px', fontWeight: '500', color: '#2c2c2c' }}>{s.nom} {s.prenom}</td>
                           <td style={{ padding: '10px 14px', fontWeight: '600', color: '#0099cc' }}>{parseFloat(s.salaire_base).toLocaleString('fr-FR')} DH</td>
                           <td style={{ padding: '10px 14px' }}>
@@ -409,13 +402,13 @@ const Salaires = () => {
                             }}>
                             <option value="">Sélectionner une catégorie...</option>
                             {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                            <option value="__add_cat__">➕ Add New</option>
+                            <option value="__add_cat__">+ Add New</option>
                           </select>
                           {showAddCat && (
                             <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
                               <input style={{ ...inputStyle, flex: 1 }} value={newCat} onChange={e => setNewCat(e.target.value)} placeholder="Nouvelle catégorie..." onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddCat())} />
                               <button type="button" onClick={handleAddCat} style={{ padding: '8px 12px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>OK</button>
-                              <button type="button" onClick={() => { setShowAddCat(false); setNewCat('') }} style={{ padding: '8px 12px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>✕</button>
+                              <button type="button" onClick={() => { setShowAddCat(false); setNewCat('') }} style={{ padding: '8px 12px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>X</button>
                             </div>
                           )}
                         </div>
@@ -447,13 +440,13 @@ const Salaires = () => {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                     <thead>
                       <tr style={{ background: '#f8f9fa' }}>
-                        {['Salarié', 'Type', 'Catégorie', 'Montant', 'Date', 'Statut', 'Actions'].map(h => (
+                        {['Salarié', 'Type', 'Catégorie', 'Montant', 'Date', 'Actions'].map(h => (
                           <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#888', fontWeight: '500', borderBottom: '1px solid #e8eaed' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {salaries.flatMap(s => s.actions?.map((a: any) => (
+                      {salaries.flatMap(s => (s.actions || []).map((a: any) => (
                         <tr key={a.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
                           <td style={{ padding: '10px 14px', fontWeight: '500', color: '#2c2c2c' }}>{s.nom} {s.prenom}</td>
                           <td style={{ padding: '10px 14px' }}>
@@ -466,61 +459,56 @@ const Salaires = () => {
                             </span>
                           </td>
                           <td style={{ padding: '10px 14px', color: '#555' }}>{a.categorie || '—'}</td>
-                          <td style={{ padding: '10px 14px', fontWeight: '600', color: a.type === 'entree' ? '#1a7a40' : '#c0392b' }}>
-                            {a.type === 'entree' ? '+' : '-'}{parseFloat(a.montant).toLocaleString('fr-FR')} DH
+
+                          {/* MONTANT MODIFIABLE */}
+                          <td style={{ padding: '10px 14px' }}>
+                            {editingActionId === a.id ? (
+                              <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                <input type="number" value={editingActionMontant}
+                                  onChange={e => setEditingActionMontant(e.target.value)}
+                                  style={{ ...inputStyle, width: '100px', padding: '4px 8px' }} />
+                              </div>
+                            ) : (
+                              <span style={{ fontWeight: '600', color: a.type === 'entree' ? '#1a7a40' : '#c0392b' }}>
+                                {a.type === 'entree' ? '+' : '-'}{parseFloat(a.montant).toLocaleString('fr-FR')} DH
+                              </span>
+                            )}
                           </td>
 
                           {/* DATE MODIFIABLE */}
                           <td style={{ padding: '10px 14px' }}>
                             {editingActionId === a.id ? (
                               <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                                <input type="date" value={editingActionDate} onChange={e => setEditingActionDate(e.target.value)}
-                                  style={{ ...inputStyle, width: '130px', padding: '4px 8px' }} />
-                                <button onClick={() => handleUpdateActionDate(a.id)} style={btnOk}>✓</button>
+                                <input type="date" value={editingActionDate}
+                                  onChange={e => setEditingActionDate(e.target.value)}
+                                  style={{ ...inputStyle, width: '140px', padding: '4px 8px' }} />
+                                <button onClick={() => handleUpdateAction(a.id)} style={btnOk}>✓</button>
                                 <button onClick={() => setEditingActionId(null)} style={btnCancel}>✕</button>
                               </div>
                             ) : (
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <span style={{ color: '#555' }}>{new Date(a.date).toLocaleDateString('fr-FR')}</span>
-                                <button onClick={() => { setEditingActionId(a.id); setEditingActionDate(a.date) }} style={btnEdit}>✏️</button>
+                                <button onClick={() => {
+                                  setEditingActionId(a.id)
+                                  setEditingActionDate(a.date)
+                                  setEditingActionMontant(String(a.montant))
+                                }} style={btnEdit}>✏️</button>
                               </div>
                             )}
                           </td>
 
+                          {/* ACTIONS */}
                           <td style={{ padding: '10px 14px' }}>
-                            <select
-                              value={a.statut}
-                              onChange={async e => {
-                                try {
-                                  await api.patch(`/salaires/actions/${a.id}/`, { statut: e.target.value })
-                                  fetchData()
-                                } catch (err) { console.error(err) }
-                              }}
-                              style={{
-                                padding: '3px 8px', borderRadius: '4px', fontSize: '11px',
-                                border: '1px solid #e0e0e0', cursor: 'pointer',
-                                background: a.statut === 'traitee' ? '#e8f8ef' : '#fff3e0',
-                                color: a.statut === 'traitee' ? '#1a7a40' : '#e65100',
-                              }}
-                            >
-                              <option value="en_cours">En cours</option>
-                              <option value="traitee">Traitée</option>
-                            </select>
-                          </td>
-                          <td style={{ padding: '10px 14px' }}>
-                            <button onClick={async () => {
-                              if (!confirm('Supprimer cette action ?')) return
-                              await api.delete(`/salaires/actions/${a.id}/`)
-                              fetchData()
-                            }} style={{ padding: '4px 10px', background: '#fdeaea', color: '#c0392b', border: '1px solid #f5c6c6', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>
-                              Supprimer
-                            </button>
+                            <button onClick={() => handleDeleteAction(a.id)} style={{
+                              padding: '4px 10px', background: '#fdeaea', color: '#c0392b',
+                              border: '1px solid #f5c6c6', borderRadius: '4px', fontSize: '11px', cursor: 'pointer'
+                            }}>Supprimer</button>
                           </td>
                         </tr>
                       )))}
-                      {salaries.every(s => !s.actions?.length) && (
+                      {salaries.every(s => !(s.actions || []).length) && (
                         <tr>
-                          <td colSpan={7} style={{ padding: '40px', textAlign: 'center', color: '#aaa' }}>Aucune action</td>
+                          <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: '#aaa' }}>Aucune action</td>
                         </tr>
                       )}
                     </tbody>

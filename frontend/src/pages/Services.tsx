@@ -38,14 +38,13 @@ const Services = () => {
   }
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Supprimer ce service ?')) return
-    try {
-      await api.delete(`/services/${id}/`)
-      fetchServices()
-    } catch (err) {
-      console.error(err)
-    }
+  try {
+    await api.delete(`/services/${id}/`)
+    fetchServices()
+  } catch (err) {
+    console.error(err)
   }
+}
 
   const inputStyle = {
     width: '100%', padding: '8px 12px',
