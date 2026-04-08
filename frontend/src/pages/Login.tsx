@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import api from '../api/axios'
 
 const Login = () => {
-    document.title = 'Connexion — Newiris'
+  document.title = 'Connexion — Newiris'
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -22,6 +22,7 @@ const Login = () => {
       login(user, access, refresh)
       if (user.role === 'admin') navigate('/dashboard')
       else if (user.role === 'achat') navigate('/ajoute-charges')
+      else if (user.role === 'responsable_technique') navigate('/caisse')
       else navigate('/dashboard')
     } catch {
       setError('Identifiants incorrects. Veuillez réessayer.')
@@ -46,12 +47,11 @@ const Login = () => {
         border: '1px solid #e8eaed',
       }}>
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-         <img
-  src="/src/assets/newiris_logo.png"
-  alt="Newiris"
-  style={{ width: '120px', objectFit: 'contain', margin: '0 auto 12px' }}
-/>
-          
+          <img
+            src="/src/assets/newiris_logo.png"
+            alt="Newiris"
+            style={{ width: '120px', objectFit: 'contain', margin: '0 auto 12px' }}
+          />
           <p style={{ fontSize: '13px', color: '#888', marginTop: '4px' }}>
             Gestion des charges
           </p>

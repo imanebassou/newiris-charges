@@ -13,117 +13,41 @@ import Salaires from './pages/Salaires'
 import Fournisseurs from './pages/Fournisseurs'
 import Caisse from './pages/Caisse'
 import DemandesCheques from './pages/DemandesCheques'
+import Vehicules from './pages/Vehicules'
+import Equipe from './pages/Equipe'
+import Chantiers from './pages/Chantiers'
 
 const App = () => {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<Navigate to="/login" replace />} />
-      <Route
-        path="/dashboard"
-        element={
-          <PrivateRoute allowedRoles={['admin', 'others']}>
-            <Dashboard />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/users"
-        element={
-          <PrivateRoute allowedRoles={['admin']}>
-            <Users />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/fournisseurs"
-        element={
-          <PrivateRoute allowedRoles={['admin', 'achat']}>
-            <Fournisseurs />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/services"
-        element={
-          <PrivateRoute allowedRoles={['admin']}>
-            <Services />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/charges-fixes"
-        element={
-          <PrivateRoute allowedRoles={['admin']}>
-            <ChargesFixes />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/charges-variables"
-        element={
-          <PrivateRoute allowedRoles={['admin']}>
-            <ChargesVariables />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/previsions"
-        element={
-          <PrivateRoute allowedRoles={['admin']}>
-            <Previsions />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/salaires"
-        element={
-          <PrivateRoute allowedRoles={['admin']}>
-            <Salaires />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/ajoute-charges"
-        element={
-          <PrivateRoute allowedRoles={['achat']}>
-            <AjouteCharges />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/banque"
-        element={
-          <PrivateRoute allowedRoles={['admin']}>
-            <Banque />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/caisse"
-        element={
-          <PrivateRoute allowedRoles={['admin', 'achat']}>
-            <Caisse />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/demandes-cheques"
-        element={
-          <PrivateRoute allowedRoles={['admin', 'achat']}>
-            <DemandesCheques />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/unauthorized"
-        element={
-          <div style={{ padding: '40px', textAlign: 'center', color: '#e84c3d', fontSize: '18px' }}>
-            Accès non autorisé
-          </div>
-        }
-      />
+      <Route path="/dashboard" element={<PrivateRoute allowedRoles={['admin', 'others']}><Dashboard /></PrivateRoute>} />
+      <Route path="/users" element={<PrivateRoute allowedRoles={['admin']}><Users /></PrivateRoute>} />
+      <Route path="/fournisseurs" element={<PrivateRoute allowedRoles={['admin', 'achat']}><Fournisseurs /></PrivateRoute>} />
+      <Route path="/services" element={<PrivateRoute allowedRoles={['admin']}><Services /></PrivateRoute>} />
+      <Route path="/charges-fixes" element={<PrivateRoute allowedRoles={['admin']}><ChargesFixes /></PrivateRoute>} />
+      <Route path="/charges-variables" element={<PrivateRoute allowedRoles={['admin']}><ChargesVariables /></PrivateRoute>} />
+      <Route path="/previsions" element={<PrivateRoute allowedRoles={['admin']}><Previsions /></PrivateRoute>} />
+      <Route path="/salaires" element={<PrivateRoute allowedRoles={['admin']}><Salaires /></PrivateRoute>} />
+      <Route path="/ajoute-charges" element={<PrivateRoute allowedRoles={['achat']}><AjouteCharges /></PrivateRoute>} />
+      <Route path="/banque" element={<PrivateRoute allowedRoles={['admin']}><Banque /></PrivateRoute>} />
+      <Route path="/caisse" element={<PrivateRoute allowedRoles={['admin', 'achat', 'responsable_technique']}><Caisse /></PrivateRoute>} />
+      <Route path="/demandes-cheques" element={<PrivateRoute allowedRoles={['admin', 'achat']}><DemandesCheques /></PrivateRoute>} />
+      <Route path="/vehicules" element={<PrivateRoute allowedRoles={['admin', 'responsable_technique']}><Vehicules /></PrivateRoute>} />
+      <Route path="/unauthorized" element={<div style={{ padding: '40px', textAlign: 'center', color: '#e84c3d', fontSize: '18px' }}>Accès non autorisé</div>} />
+      <Route path="/equipe" element={
+  <PrivateRoute allowedRoles={['admin', 'responsable_technique']}>
+    <Equipe />
+  </PrivateRoute>
+} />
+<Route path="/chantiers" element={
+  <PrivateRoute allowedRoles={['admin', 'responsable_technique']}>
+    <Chantiers />
+  </PrivateRoute>
+} />
     </Routes>
+    
   )
 }
 

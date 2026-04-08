@@ -3,7 +3,7 @@ import Layout from '../components/Layout'
 import api from '../api/axios'
 
 const Users = () => {
-    document.title = 'Utilisateurs — Newiris'
+  document.title = 'Utilisateurs — Newiris'
   const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -39,7 +39,6 @@ const Users = () => {
   }
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Supprimer cet utilisateur ?')) return
     try {
       await api.delete(`/auth/users/${id}/`)
       fetchUsers()
@@ -55,7 +54,17 @@ const Users = () => {
   }
 
   const roleColor: { [key: string]: string } = {
-    admin: '#1a3a6b', technicien: '#0099cc', others: '#888'
+    admin: '#1a3a6b',
+    achat: '#0099cc',
+    others: '#888',
+    responsable_technique: '#e67e22',
+  }
+
+  const roleLabel: { [key: string]: string } = {
+    admin: 'Admin',
+    achat: 'Achat',
+    others: 'Others',
+    responsable_technique: 'Resp. Technique',
   }
 
   return (
@@ -113,8 +122,9 @@ const Users = () => {
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Rôle</label>
                   <select style={inputStyle} value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
                     <option value="admin">Admin</option>
-<option value="achat">Achat</option>
-<option value="others">Others</option>
+                    <option value="achat">Achat</option>
+                    <option value="others">Others</option>
+                    <option value="responsable_technique">Responsable Technique</option>
                   </select>
                 </div>
                 <div>
@@ -149,12 +159,9 @@ const Users = () => {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
               <thead>
                 <tr style={{ background: '#f8f9fa' }}>
-                  <th style={{ padding: '10px 14px', textAlign: 'left', color: '#888', fontWeight: '500', borderBottom: '1px solid #e8eaed' }}>#</th>
-                  <th style={{ padding: '10px 14px', textAlign: 'left', color: '#888', fontWeight: '500', borderBottom: '1px solid #e8eaed' }}>Nom</th>
-                  <th style={{ padding: '10px 14px', textAlign: 'left', color: '#888', fontWeight: '500', borderBottom: '1px solid #e8eaed' }}>Email</th>
-                  <th style={{ padding: '10px 14px', textAlign: 'left', color: '#888', fontWeight: '500', borderBottom: '1px solid #e8eaed' }}>Rôle</th>
-                  <th style={{ padding: '10px 14px', textAlign: 'left', color: '#888', fontWeight: '500', borderBottom: '1px solid #e8eaed' }}>Fonction</th>
-                  <th style={{ padding: '10px 14px', textAlign: 'left', color: '#888', fontWeight: '500', borderBottom: '1px solid #e8eaed' }}>Actions</th>
+                  {['#', 'Nom', 'Email', 'Rôle', 'Fonction', 'Actions'].map(h => (
+                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#888', fontWeight: '500', borderBottom: '1px solid #e8eaed' }}>{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -168,10 +175,10 @@ const Users = () => {
                     <td style={{ padding: '10px 14px' }}>
                       <span style={{
                         padding: '2px 8px', borderRadius: '4px', fontSize: '11px',
-                        background: `${roleColor[user.role]}20`,
-                        color: roleColor[user.role], fontWeight: '600'
+                        background: `${roleColor[user.role] || '#888'}20`,
+                        color: roleColor[user.role] || '#888', fontWeight: '600'
                       }}>
-                        {user.role}
+                        {roleLabel[user.role] || user.role}
                       </span>
                     </td>
                     <td style={{ padding: '10px 14px', color: '#555' }}>{user.fonction || '—'}</td>

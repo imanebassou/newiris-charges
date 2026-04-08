@@ -7,9 +7,10 @@ class CustomUser(AbstractUser):
         ADMIN = 'admin', 'Admin'
         ACHAT = 'achat', 'Achat'
         OTHERS = 'others', 'Others'
+        RESPONSABLE_TECHNIQUE = 'responsable_technique', 'Responsable Technique'
 
     role = models.CharField(
-        max_length=20,
+        max_length=30,
         choices=Role.choices,
         default=Role.OTHERS
     )

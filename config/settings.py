@@ -32,6 +32,9 @@ INSTALLED_APPS = [
     'fournisseurs',
     'caisse',
     'cheques',
+    'vehicules',
+    'equipe',
+    'chantiers',
 ]
 
 MIDDLEWARE = [
