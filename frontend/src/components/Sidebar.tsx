@@ -21,7 +21,9 @@ const Sidebar = () => {
     { label: 'Charges variables', path: '/charges-variables', roles: ['admin'] },
     { label: 'Salaires', path: '/salaires', roles: ['admin'] },
     { label: 'Ajouter charge variable', path: '/ajoute-charges', roles: ['achat'] },
-    { label: 'Fournisseurs', path: '/fournisseurs', roles: ['admin'] },
+    { label: 'Fournisseurs', path: '/fournisseurs', roles: ['admin', 'achat'] },
+    { label: 'Caisse', path: '/caisse', roles: ['admin', 'achat'] },
+    { label: 'Demandes chèques', path: '/demandes-cheques', roles: ['admin', 'achat'] },
   ]
 
   const filteredItems = navItems.filter(item =>
@@ -37,14 +39,14 @@ const Sidebar = () => {
       <div style={{ padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <img
-  src="/src/assets/newiris_logo.png"
-  alt="Newiris"
-  style={{ width: '80px', objectFit: 'contain' }}
-/>
-<div>
-  <div style={{ color: '#fff', fontSize: '14px', fontWeight: '600' }}>Newiris</div>
-  <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px' }}>Gestion des charges</div>
-</div>
+            src="/src/assets/newiris_logo.png"
+            alt="Newiris"
+            style={{ width: '80px', objectFit: 'contain' }}
+          />
+          <div>
+            <div style={{ color: '#fff', fontSize: '14px', fontWeight: '600' }}>Newiris</div>
+            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px' }}>Gestion des charges</div>
+          </div>
         </div>
       </div>
 

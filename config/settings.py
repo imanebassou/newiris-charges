@@ -30,6 +30,8 @@ INSTALLED_APPS = [
     'previsions',
     'salaires',
     'fournisseurs',
+    'caisse',
+    'cheques',
 ]
 
 MIDDLEWARE = [

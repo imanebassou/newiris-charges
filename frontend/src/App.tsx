@@ -11,6 +11,8 @@ import PrivateRoute from './routes/PrivateRoute'
 import Previsions from './pages/Previsions'
 import Salaires from './pages/Salaires'
 import Fournisseurs from './pages/Fournisseurs'
+import Caisse from './pages/Caisse'
+import DemandesCheques from './pages/DemandesCheques'
 
 const App = () => {
   return (
@@ -34,13 +36,13 @@ const App = () => {
         }
       />
       <Route
-  path="/fournisseurs"
-  element={
-    <PrivateRoute allowedRoles={['admin']}>
-      <Fournisseurs />
-    </PrivateRoute>
-  }
-/>
+        path="/fournisseurs"
+        element={
+          <PrivateRoute allowedRoles={['admin', 'achat']}>
+            <Fournisseurs />
+          </PrivateRoute>
+        }
+      />
       <Route
         path="/services"
         element={
@@ -66,21 +68,21 @@ const App = () => {
         }
       />
       <Route
-  path="/previsions"
-  element={
-    <PrivateRoute allowedRoles={['admin']}>
-      <Previsions />
-    </PrivateRoute>
-  }
-/>
-<Route
-  path="/salaires"
-  element={
-    <PrivateRoute allowedRoles={['admin']}>
-      <Salaires />
-    </PrivateRoute>
-  }
-/>
+        path="/previsions"
+        element={
+          <PrivateRoute allowedRoles={['admin']}>
+            <Previsions />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/salaires"
+        element={
+          <PrivateRoute allowedRoles={['admin']}>
+            <Salaires />
+          </PrivateRoute>
+        }
+      />
       <Route
         path="/ajoute-charges"
         element={
@@ -98,6 +100,22 @@ const App = () => {
         }
       />
       <Route
+        path="/caisse"
+        element={
+          <PrivateRoute allowedRoles={['admin', 'achat']}>
+            <Caisse />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/demandes-cheques"
+        element={
+          <PrivateRoute allowedRoles={['admin', 'achat']}>
+            <DemandesCheques />
+          </PrivateRoute>
+        }
+      />
+      <Route
         path="/unauthorized"
         element={
           <div style={{ padding: '40px', textAlign: 'center', color: '#e84c3d', fontSize: '18px' }}>
@@ -106,8 +124,6 @@ const App = () => {
         }
       />
     </Routes>
-
-    
   )
 }
 
