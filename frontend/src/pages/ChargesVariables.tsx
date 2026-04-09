@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import api from '../api/axios'
+import SortableTable from '../components/SortableTable'
 
 const initialCategories: { [key: string]: string[] } = {
   'Véhicule': ['Carburant', 'Maintenance voiture', 'Lavage', 'Vidange'],
@@ -65,47 +66,36 @@ const ChargesVariables = () => {
       formData.append('description', form.personne)
       formData.append('statut', form.statut)
       if (photo) formData.append('photo', photo)
-
       await api.post('/charges-variables/', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
-
       setShowForm(false)
       setPhoto(null)
       setForm({ titre: '', service: '', categorie: '', sous_categorie: '', montant: '', date: '', personne: '', statut: 'en_cours' })
-      setShowAddCat(false)
-      setShowAddSousCat(false)
-      setShowAddPerson(false)
+      setShowAddCat(false); setShowAddSousCat(false); setShowAddPerson(false)
       fetchData()
-    } catch (err) {
-      console.error(err)
-    }
+    } catch (err) { console.error(err) }
   }
 
   const handleDelete = async (id: number) => {
-  try {
-    await api.delete(`/charges-variables/${id}/`)
-    fetchData()
-  } catch (err) {
-    console.error(err)
+    try {
+      await api.delete(`/charges-variables/${id}/`)
+      fetchData()
+    } catch (err) { console.error(err) }
   }
-}
 
   const handleStatutChange = async (id: number, statut: string) => {
     try {
       await api.patch(`/charges-variables/${id}/`, { statut })
       fetchData()
-    } catch (err) {
-      console.error(err)
-    }
+    } catch (err) { console.error(err) }
   }
 
   const handleAddCat = () => {
     if (newCat.trim() && !categories[newCat.trim()]) {
       setCategories({ ...categories, [newCat.trim()]: [] })
       setForm({ ...form, categorie: newCat.trim(), sous_categorie: '' })
-      setNewCat('')
-      setShowAddCat(false)
+      setNewCat(''); setShowAddCat(false)
     }
   }
 
@@ -115,8 +105,7 @@ const ChargesVariables = () => {
       updated[form.categorie] = [...(updated[form.categorie] || []), newSousCat.trim()]
       setCategories(updated)
       setForm({ ...form, sous_categorie: newSousCat.trim() })
-      setNewSousCat('')
-      setShowAddSousCat(false)
+      setNewSousCat(''); setShowAddSousCat(false)
     }
   }
 
@@ -125,8 +114,7 @@ const ChargesVariables = () => {
       const fakeUser = { id: `new_${newPerson.trim()}`, username: newPerson.trim() }
       setUsers([...users, fakeUser])
       setForm({ ...form, personne: newPerson.trim() })
-      setNewPerson('')
-      setShowAddPerson(false)
+      setNewPerson(''); setShowAddPerson(false)
     }
   }
 
@@ -136,9 +124,7 @@ const ChargesVariables = () => {
     fontSize: '13px', outline: 'none',
   }
 
-  const addNewInputStyle = {
-    display: 'flex', gap: '6px', marginTop: '6px'
-  }
+  const addNewInputStyle = { display: 'flex', gap: '6px', marginTop: '6px' }
 
   const totalMontant = charges
     .filter(c => c.statut === 'traitee')
@@ -193,12 +179,10 @@ const ChargesVariables = () => {
             <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#1a3a6b', marginBottom: '16px' }}>Nouvelle charge variable</h3>
             <form onSubmit={handleSubmit}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Titre *</label>
                   <input style={inputStyle} value={form.titre} onChange={e => setForm({ ...form, titre: e.target.value })} required placeholder="Ex: Carburant Mars" />
                 </div>
-
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Service *</label>
                   <select style={inputStyle} value={form.service} onChange={e => setForm({ ...form, service: e.target.value })} required>
@@ -206,8 +190,6 @@ const ChargesVariables = () => {
                     {services.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
                   </select>
                 </div>
-
-                {/* CATÉGORIE + Add New */}
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Catégorie *</label>
                   <select style={inputStyle} value={form.categorie}
@@ -227,8 +209,6 @@ const ChargesVariables = () => {
                     </div>
                   )}
                 </div>
-
-                {/* SOUS-CATÉGORIE + Add New */}
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Sous-catégorie</label>
                   <select style={inputStyle} value={form.sous_categorie}
@@ -248,17 +228,14 @@ const ChargesVariables = () => {
                     </div>
                   )}
                 </div>
-
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Montant (DH) *</label>
                   <input style={inputStyle} type="number" value={form.montant} onChange={e => setForm({ ...form, montant: e.target.value })} required placeholder="Ex: 1200" />
                 </div>
-
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Date *</label>
                   <input style={inputStyle} type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} required />
                 </div>
-
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Statut</label>
                   <select style={inputStyle} value={form.statut} onChange={e => setForm({ ...form, statut: e.target.value })}>
@@ -266,8 +243,6 @@ const ChargesVariables = () => {
                     <option value="traitee">Traitée</option>
                   </select>
                 </div>
-
-                {/* PERSONNE + Add New */}
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Personne</label>
                   <select style={inputStyle} value={form.personne}
@@ -287,7 +262,6 @@ const ChargesVariables = () => {
                     </div>
                   )}
                 </div>
-
                 <div style={{ gridColumn: '1 / -1' }}>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Photo (justificatif)</label>
                   <label style={{
@@ -315,7 +289,6 @@ const ChargesVariables = () => {
                   )}
                 </div>
               </div>
-
               <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
                 <button type="submit" style={{ padding: '8px 20px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Créer</button>
                 <button type="button" onClick={() => { setShowForm(false); setShowAddCat(false); setShowAddSousCat(false); setShowAddPerson(false) }} style={{ padding: '8px 20px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Annuler</button>
@@ -324,56 +297,77 @@ const ChargesVariables = () => {
           </div>
         )}
 
-        <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e8eaed', overflow: 'hidden' }}>
-          {loading ? (
-            <div style={{ padding: '40px', textAlign: 'center', color: '#888' }}>Chargement...</div>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-              <thead>
-                <tr style={{ background: '#f8f9fa' }}>
-                  {['#', 'Titre', 'Service', 'Catégorie', 'Montant', 'Date', 'Personne', 'Photo', 'Statut', 'Actions'].map(h => (
-                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#888', fontWeight: '500', borderBottom: '1px solid #e8eaed' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {charges.map((charge) => (
-                  <tr key={charge.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                    <td style={{ padding: '10px 14px', color: '#aaa' }}>{charge.id}</td>
-                    <td style={{ padding: '10px 14px', fontWeight: '500', color: '#2c2c2c' }}>{charge.titre}</td>
-                    <td style={{ padding: '10px 14px', color: '#555' }}>{charge.service}</td>
-                    <td style={{ padding: '10px 14px', color: '#555' }}>{charge.categorie}</td>
-                    <td style={{ padding: '10px 14px', fontWeight: '600', color: '#e84c3d' }}>{parseFloat(charge.montant).toLocaleString('fr-FR')} DH</td>
-                    <td style={{ padding: '10px 14px', color: '#555' }}>{new Date(charge.date).toLocaleDateString('fr-FR')}</td>
-                    <td style={{ padding: '10px 14px', color: '#555' }}>{charge.description || '—'}</td>
-                    <td style={{ padding: '10px 14px' }}>
-                      {charge.photo ? (
-                        <div onClick={() => setSelectedPhoto(charge.photo)} style={{ cursor: 'pointer', display: 'inline-block' }}>
-                          <img src={charge.photo} alt="justificatif" style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '6px', border: '2px solid #e0e0e0' }}
-                            onMouseOver={e => (e.currentTarget.style.borderColor = '#0099cc')}
-                            onMouseOut={e => (e.currentTarget.style.borderColor = '#e0e0e0')} />
-                          <div style={{ fontSize: '10px', color: '#0099cc', marginTop: '2px', textAlign: 'center' }}>Voir</div>
-                        </div>
-                      ) : (
-                        <span style={{ fontSize: '11px', color: '#aaa', background: '#f8f9fa', padding: '4px 8px', borderRadius: '4px', border: '1px solid #e8eaed' }}>Aucune</span>
-                      )}
-                    </td>
-                    <td style={{ padding: '10px 14px' }}>
-                      <select value={charge.statut} onChange={e => handleStatutChange(charge.id, e.target.value)}
-                        style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', border: '1px solid #e0e0e0', cursor: 'pointer', background: charge.statut === 'traitee' ? '#e8f8ef' : '#fff3e0', color: charge.statut === 'traitee' ? '#1a7a40' : '#e65100' }}>
-                        <option value="en_cours">En cours</option>
-                        <option value="traitee">Traitée</option>
-                      </select>
-                    </td>
-                    <td style={{ padding: '10px 14px' }}>
-                      <button onClick={() => handleDelete(charge.id)} style={{ padding: '4px 10px', background: '#fdeaea', color: '#c0392b', border: '1px solid #f5c6c6', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>Supprimer</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        {loading ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#888' }}>Chargement...</div>
+        ) : (
+          <SortableTable
+            emptyMessage="Aucune charge variable"
+            columns={[
+              {
+                key: 'id', label: '#',
+                render: (_v: any, row: any) => <span style={{ color: '#aaa' }}>{row.id}</span>
+              },
+              {
+                key: 'titre', label: 'Titre',
+                render: (_v: any, row: any) => <span style={{ fontWeight: '500', color: '#2c2c2c' }}>{row.titre}</span>
+              },
+              {
+                key: 'service', label: 'Service',
+                render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.service || '—'}</span>
+              },
+              {
+                key: 'categorie', label: 'Catégorie',
+                render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.categorie || '—'}</span>
+              },
+              {
+                key: 'montant', label: 'Montant',
+                render: (_v: any, row: any) => (
+                  <span style={{ fontWeight: '600', color: '#e84c3d' }}>
+                    {parseFloat(row.montant).toLocaleString('fr-FR')} DH
+                  </span>
+                )
+              },
+              {
+                key: 'date', label: 'Date',
+                render: (_v: any, row: any) => <span style={{ color: '#555' }}>{new Date(row.date).toLocaleDateString('fr-FR')}</span>
+              },
+              {
+                key: 'description', label: 'Personne',
+                render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.description || '—'}</span>
+              },
+              {
+                key: 'photo', label: 'Photo', sortable: false,
+                render: (_v: any, row: any) => row.photo ? (
+                  <div onClick={() => setSelectedPhoto(row.photo)} style={{ cursor: 'pointer', display: 'inline-block' }}>
+                    <img src={row.photo} alt="justificatif" style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '6px', border: '2px solid #e0e0e0' }}
+                      onMouseOver={e => (e.currentTarget.style.borderColor = '#0099cc')}
+                      onMouseOut={e => (e.currentTarget.style.borderColor = '#e0e0e0')} />
+                    <div style={{ fontSize: '10px', color: '#0099cc', marginTop: '2px', textAlign: 'center' }}>Voir</div>
+                  </div>
+                ) : (
+                  <span style={{ fontSize: '11px', color: '#aaa', background: '#f8f9fa', padding: '4px 8px', borderRadius: '4px', border: '1px solid #e8eaed' }}>Aucune</span>
+                )
+              },
+              {
+                key: 'statut', label: 'Statut',
+                render: (_v: any, row: any) => (
+                  <select value={row.statut} onChange={e => handleStatutChange(row.id, e.target.value)}
+                    style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', border: '1px solid #e0e0e0', cursor: 'pointer', background: row.statut === 'traitee' ? '#e8f8ef' : '#fff3e0', color: row.statut === 'traitee' ? '#1a7a40' : '#e65100' }}>
+                    <option value="en_cours">En cours</option>
+                    <option value="traitee">Traitée</option>
+                  </select>
+                )
+              },
+              {
+                key: 'actions', label: 'Actions', sortable: false,
+                render: (_v: any, row: any) => (
+                  <button onClick={() => handleDelete(row.id)} style={{ padding: '4px 10px', background: '#fdeaea', color: '#c0392b', border: '1px solid #f5c6c6', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>Supprimer</button>
+                )
+              },
+            ]}
+            data={charges}
+          />
+        )}
       </div>
     </Layout>
   )

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import api from '../api/axios'
+import SortableTable from '../components/SortableTable'
 
 const ChargesFixes = () => {
   document.title = 'Charges fixes — Newiris'
@@ -32,11 +33,8 @@ const ChargesFixes = () => {
       setCharges(chargesRes.data)
       setServices(servicesRes.data)
       setUsers(usersRes.data)
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
+    } catch (err) { console.error(err) }
+    finally { setLoading(false) }
   }
 
   useEffect(() => { fetchData() }, [])
@@ -52,65 +50,44 @@ const ChargesFixes = () => {
       setShowForm(false)
       setForm({ service: selectedService?.id?.toString() || '', categorie: '', montant: '' })
       fetchData()
-    } catch (err) {
-      console.error(err)
-    }
+    } catch (err) { console.error(err) }
   }
 
   const handleDelete = async (id: number) => {
-    try {
-      await api.delete(`/charges-fixes/${id}/`)
-      fetchData()
-    } catch (err) {
-      console.error(err)
-    }
+    try { await api.delete(`/charges-fixes/${id}/`); fetchData() } catch (err) { console.error(err) }
   }
 
   const handleAddCategory = () => {
     if (newCat.trim() && !categories.includes(newCat.trim())) {
       setCategories([...categories, newCat.trim()])
       setForm({ ...form, categorie: newCat.trim() })
-      setNewCat('')
-      setShowAddCat(false)
+      setNewCat(''); setShowAddCat(false)
     }
   }
 
   const handleAddPerson = async () => {
     if (!newPerson.trim()) return
     try {
-      const res = await api.post('/auth/users/', {
-        username: newPerson.trim(),
-        password: 'newiris1234',
-        role: 'others',
-      })
+      const res = await api.post('/auth/users/', { username: newPerson.trim(), password: 'newiris1234', role: 'others' })
       setUsers([...users, res.data])
       setForm({ ...form, service: res.data.id.toString() })
-      setNewPerson('')
-      setShowAddPerson(false)
-    } catch (err) {
-      console.error(err)
-    }
+      setNewPerson(''); setShowAddPerson(false)
+    } catch (err) { console.error(err) }
   }
 
-  const inputStyle = {
-    width: '100%', padding: '8px 12px',
-    border: '1px solid #e0e0e0', borderRadius: '6px',
-    fontSize: '13px', outline: 'none',
-  }
-
+  const inputStyle = { width: '100%', padding: '8px 12px', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '13px', outline: 'none' }
   const totalMontant = charges.reduce((sum, c) => sum + parseFloat(c.montant), 0)
+  const getChargesForService = (serviceId: number) => charges.filter(c => c.service === serviceId || c.service === String(serviceId))
+  const getTotalForService = (serviceId: number) => getChargesForService(serviceId).reduce((sum, c) => sum + parseFloat(c.montant), 0)
 
-  const getChargesForService = (serviceId: number) =>
-    charges.filter(c => c.service === serviceId || c.service === String(serviceId))
+  const chargesTableData = selectedService ? getChargesForService(selectedService.id).map((c, i) => ({
+    ...c,
+    index: i + 1,
+    montant_fmt: `${parseFloat(c.montant).toLocaleString('fr-FR')} DH`,
+    created_at_fmt: new Date(c.created_at).toLocaleDateString('fr-FR'),
+  })) : []
 
-  const getTotalForService = (serviceId: number) =>
-    getChargesForService(serviceId).reduce((sum, c) => sum + parseFloat(c.montant), 0)
-
-  if (loading) return (
-    <Layout>
-      <div style={{ padding: '40px', textAlign: 'center', color: '#888' }}>Chargement...</div>
-    </Layout>
-  )
+  if (loading) return <Layout><div style={{ padding: '40px', textAlign: 'center', color: '#888' }}>Chargement...</div></Layout>
 
   return (
     <Layout>
@@ -123,18 +100,11 @@ const ChargesFixes = () => {
             <p style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>Gestion des charges fixes</p>
           </div>
           {selectedService && (
-            <button onClick={() => setShowForm(!showForm)} style={{
-              padding: '8px 16px', background: '#0099cc', color: '#fff',
-              border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: '600'
-            }}>+ Ajouter charge fixe</button>
+            <button onClick={() => setShowForm(!showForm)} style={{ padding: '8px 16px', background: '#0099cc', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>+ Ajouter charge fixe</button>
           )}
         </div>
 
-        <div style={{
-          background: '#fff', borderRadius: '8px', padding: '16px',
-          border: '1px solid #e8eaed', borderTop: '3px solid #0099cc',
-          marginBottom: '20px', display: 'inline-block', minWidth: '200px'
-        }}>
+        <div style={{ background: '#fff', borderRadius: '8px', padding: '16px', border: '1px solid #e8eaed', borderTop: '3px solid #0099cc', marginBottom: '20px', display: 'inline-block', minWidth: '200px' }}>
           <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Total charges fixes</div>
           <div style={{ fontSize: '22px', fontWeight: '700', color: '#0099cc' }}>
             {selectedService ? getTotalForService(selectedService.id).toLocaleString('fr-FR') : totalMontant.toLocaleString('fr-FR')} DH
@@ -142,30 +112,28 @@ const ChargesFixes = () => {
         </div>
 
         {!selectedService && (
-          <>
-            {services.length === 0 ? (
-              <div style={{ textAlign: 'center', color: '#aaa', padding: '60px', fontSize: '14px' }}>Aucun service disponible</div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px', maxWidth: '900px', margin: '0 auto' }}>
-                {services.map(service => {
-                  const total = getTotalForService(service.id)
-                  const nbCharges = getChargesForService(service.id).length
-                  return (
-                    <div key={service.id}
-                      onClick={() => { setSelectedService(service); setForm({ ...form, service: service.id.toString() }) }}
-                      style={{ background: '#fff', borderRadius: '12px', border: '2px solid #e8eaed', padding: '30px', cursor: 'pointer', textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}
-                      onMouseOver={e => { e.currentTarget.style.borderColor = '#0099cc'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,153,204,0.15)'; e.currentTarget.style.transform = 'translateY(-2px)' }}
-                      onMouseOut={e => { e.currentTarget.style.borderColor = '#e8eaed'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.05)'; e.currentTarget.style.transform = 'translateY(0)' }}
-                    >
-                      <div style={{ fontSize: '16px', fontWeight: '700', color: '#1a3a6b', marginBottom: '8px' }}>{service.nom}</div>
-                      <div style={{ fontSize: '22px', fontWeight: '800', color: '#0099cc', marginBottom: '6px' }}>{total.toLocaleString('fr-FR')} DH</div>
-                      <div style={{ fontSize: '12px', color: '#aaa' }}>{nbCharges} charge{nbCharges > 1 ? 's' : ''}</div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </>
+          services.length === 0 ? (
+            <div style={{ textAlign: 'center', color: '#aaa', padding: '60px', fontSize: '14px' }}>Aucun service disponible</div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px', maxWidth: '900px', margin: '0 auto' }}>
+              {services.map(service => {
+                const total = getTotalForService(service.id)
+                const nbCharges = getChargesForService(service.id).length
+                return (
+                  <div key={service.id}
+                    onClick={() => { setSelectedService(service); setForm({ ...form, service: service.id.toString() }) }}
+                    style={{ background: '#fff', borderRadius: '12px', border: '2px solid #e8eaed', padding: '30px', cursor: 'pointer', textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}
+                    onMouseOver={e => { e.currentTarget.style.borderColor = '#0099cc'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,153,204,0.15)'; e.currentTarget.style.transform = 'translateY(-2px)' }}
+                    onMouseOut={e => { e.currentTarget.style.borderColor = '#e8eaed'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.05)'; e.currentTarget.style.transform = 'translateY(0)' }}
+                  >
+                    <div style={{ fontSize: '16px', fontWeight: '700', color: '#1a3a6b', marginBottom: '8px' }}>{service.nom}</div>
+                    <div style={{ fontSize: '22px', fontWeight: '800', color: '#0099cc', marginBottom: '6px' }}>{total.toLocaleString('fr-FR')} DH</div>
+                    <div style={{ fontSize: '12px', color: '#aaa' }}>{nbCharges} charge{nbCharges > 1 ? 's' : ''}</div>
+                  </div>
+                )
+              })}
+            </div>
+          )
         )}
 
         {selectedService && (
@@ -177,18 +145,14 @@ const ChargesFixes = () => {
 
             {showForm && (
               <div style={{ background: '#fff', borderRadius: '8px', padding: '20px', border: '1px solid #e8eaed', marginBottom: '20px' }}>
-                <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#1a3a6b', marginBottom: '16px' }}>
-                  Nouvelle charge fixe — {selectedService.nom}
-                </h3>
+                <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#1a3a6b', marginBottom: '16px' }}>Nouvelle charge fixe — {selectedService.nom}</h3>
                 <form onSubmit={handleSubmit}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                     <div>
                       <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Personne *</label>
                       <select style={inputStyle} value={form.service}
-                        onChange={e => {
-                          if (e.target.value === '__add_person__') { setShowAddPerson(true) }
-                          else { setForm({ ...form, service: e.target.value }); setShowAddPerson(false) }
-                        }} required={!showAddPerson}>
+                        onChange={e => { if (e.target.value === '__add_person__') { setShowAddPerson(true) } else { setForm({ ...form, service: e.target.value }); setShowAddPerson(false) } }}
+                        required={!showAddPerson}>
                         <option value="">Sélectionner une personne...</option>
                         {users.map(u => <option key={u.id} value={u.id}>{u.username}</option>)}
                         <option value="__add_person__">+ Add New</option>
@@ -204,10 +168,8 @@ const ChargesFixes = () => {
                     <div>
                       <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Catégorie *</label>
                       <select style={inputStyle} value={form.categorie}
-                        onChange={e => {
-                          if (e.target.value === '__add_new__') { setShowAddCat(true) }
-                          else { setForm({ ...form, categorie: e.target.value }); setShowAddCat(false) }
-                        }} required={!showAddCat}>
+                        onChange={e => { if (e.target.value === '__add_new__') { setShowAddCat(true) } else { setForm({ ...form, categorie: e.target.value }); setShowAddCat(false) } }}
+                        required={!showAddCat}>
                         <option value="">Sélectionner une catégorie...</option>
                         {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                         <option value="__add_new__">+ Add New</option>
@@ -233,34 +195,23 @@ const ChargesFixes = () => {
               </div>
             )}
 
-            <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e8eaed', overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                <thead>
-                  <tr style={{ background: '#f8f9fa' }}>
-                    {['#', 'Personne', 'Catégorie', 'Montant', 'Créé le', 'Actions'].map(h => (
-                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#888', fontWeight: '500', borderBottom: '1px solid #e8eaed' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {getChargesForService(selectedService.id).map((charge, i) => (
-                    <tr key={charge.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                      <td style={{ padding: '10px 14px', color: '#aaa' }}>{i + 1}</td>
-                      <td style={{ padding: '10px 14px', color: '#555' }}>{charge.service}</td>
-                      <td style={{ padding: '10px 14px', fontWeight: '500', color: '#2c2c2c' }}>{charge.categorie}</td>
-                      <td style={{ padding: '10px 14px', fontWeight: '600', color: '#0099cc' }}>{parseFloat(charge.montant).toLocaleString('fr-FR')} DH</td>
-                      <td style={{ padding: '10px 14px', color: '#555' }}>{new Date(charge.created_at).toLocaleDateString('fr-FR')}</td>
-                      <td style={{ padding: '10px 14px' }}>
-                        <button onClick={() => handleDelete(charge.id)} style={{ padding: '4px 10px', background: '#fdeaea', color: '#c0392b', border: '1px solid #f5c6c6', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>Supprimer</button>
-                      </td>
-                    </tr>
-                  ))}
-                  {getChargesForService(selectedService.id).length === 0 && (
-                    <tr><td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: '#aaa' }}>Aucune charge fixe pour ce service</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <SortableTable
+              emptyMessage="Aucune charge fixe pour ce service"
+              columns={[
+                { key: 'index', label: '#', render: (_v: any, row: any) => <span style={{ color: '#aaa' }}>{row.index}</span> },
+                { key: 'service', label: 'Personne', render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.service}</span> },
+                { key: 'categorie', label: 'Catégorie', render: (_v: any, row: any) => <span style={{ fontWeight: '500', color: '#2c2c2c' }}>{row.categorie}</span> },
+                { key: 'montant_fmt', label: 'Montant', render: (_v: any, row: any) => <span style={{ fontWeight: '600', color: '#0099cc' }}>{row.montant_fmt}</span> },
+                { key: 'created_at_fmt', label: 'Créé le', render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.created_at_fmt}</span> },
+                {
+                  key: 'actions', label: 'Actions', sortable: false,
+                  render: (_v: any, row: any) => (
+                    <button onClick={() => handleDelete(row.id)} style={{ padding: '4px 10px', background: '#fdeaea', color: '#c0392b', border: '1px solid #f5c6c6', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>Supprimer</button>
+                  )
+                },
+              ]}
+              data={chargesTableData}
+            />
           </div>
         )}
       </div>

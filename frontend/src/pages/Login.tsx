@@ -21,6 +21,7 @@ const Login = () => {
       const { access, refresh, user } = response.data
       login(user, access, refresh)
       if (user.role === 'admin') navigate('/dashboard')
+      else if (user.role === 'super_admin') navigate('/users')
       else if (user.role === 'achat') navigate('/ajoute-charges')
       else if (user.role === 'responsable_technique') navigate('/caisse')
       else navigate('/dashboard')

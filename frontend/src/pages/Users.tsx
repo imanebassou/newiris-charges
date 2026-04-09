@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import api from '../api/axios'
+import SortableTable from '../components/SortableTable'
 
 const Users = () => {
   document.title = 'Utilisateurs — Newiris'
@@ -33,18 +34,14 @@ const Users = () => {
       setShowForm(false)
       setForm({ username: '', email: '', password: '', first_name: '', last_name: '', role: 'others', fonction: '', phone: '' })
       fetchUsers()
-    } catch (err) {
-      console.error(err)
-    }
+    } catch (err) { console.error(err) }
   }
 
   const handleDelete = async (id: number) => {
     try {
       await api.delete(`/auth/users/${id}/`)
       fetchUsers()
-    } catch (err) {
-      console.error(err)
-    }
+    } catch (err) { console.error(err) }
   }
 
   const inputStyle = {
@@ -55,6 +52,7 @@ const Users = () => {
 
   const roleColor: { [key: string]: string } = {
     admin: '#1a3a6b',
+    super_admin: '#6a0dad',
     achat: '#0099cc',
     others: '#888',
     responsable_technique: '#e67e22',
@@ -62,10 +60,17 @@ const Users = () => {
 
   const roleLabel: { [key: string]: string } = {
     admin: 'Admin',
+    super_admin: 'Super Admin',
     achat: 'Achat',
     others: 'Others',
     responsable_technique: 'Resp. Technique',
   }
+
+  const tableData = users.map(u => ({
+    ...u,
+    nom_complet: `${u.first_name || u.username} ${u.last_name || ''}`.trim(),
+    role_label: roleLabel[u.role] || u.role,
+  }))
 
   return (
     <Layout>
@@ -75,27 +80,16 @@ const Users = () => {
             <h1 style={{ fontSize: '18px', fontWeight: '700', color: '#1a3a6b' }}>Utilisateurs</h1>
             <p style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>Gestion des comptes</p>
           </div>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            style={{
-              padding: '8px 16px', background: '#0099cc',
-              color: '#fff', border: 'none', borderRadius: '6px',
-              fontSize: '12px', cursor: 'pointer', fontWeight: '600'
-            }}
-          >
-            + Ajouter utilisateur
-          </button>
+          <button onClick={() => setShowForm(!showForm)} style={{
+            padding: '8px 16px', background: '#0099cc',
+            color: '#fff', border: 'none', borderRadius: '6px',
+            fontSize: '12px', cursor: 'pointer', fontWeight: '600'
+          }}>+ Ajouter utilisateur</button>
         </div>
 
         {showForm && (
-          <div style={{
-            background: '#fff', borderRadius: '8px',
-            padding: '20px', border: '1px solid #e8eaed',
-            marginBottom: '20px'
-          }}>
-            <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#1a3a6b', marginBottom: '16px' }}>
-              Nouvel utilisateur
-            </h3>
+          <div style={{ background: '#fff', borderRadius: '8px', padding: '20px', border: '1px solid #e8eaed', marginBottom: '20px' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#1a3a6b', marginBottom: '16px' }}>Nouvel utilisateur</h3>
             <form onSubmit={handleSubmit}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
@@ -122,6 +116,7 @@ const Users = () => {
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Rôle</label>
                   <select style={inputStyle} value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
                     <option value="admin">Admin</option>
+                    <option value="super_admin">Super Admin</option>
                     <option value="achat">Achat</option>
                     <option value="others">Others</option>
                     <option value="responsable_technique">Responsable Technique</option>
@@ -137,69 +132,61 @@ const Users = () => {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-                <button type="submit" style={{
-                  padding: '8px 20px', background: '#1a3a6b',
-                  color: '#fff', border: 'none', borderRadius: '6px',
-                  fontSize: '12px', cursor: 'pointer'
-                }}>Créer</button>
-                <button type="button" onClick={() => setShowForm(false)} style={{
-                  padding: '8px 20px', background: '#fff',
-                  color: '#555', border: '1px solid #e0e0e0',
-                  borderRadius: '6px', fontSize: '12px', cursor: 'pointer'
-                }}>Annuler</button>
+                <button type="submit" style={{ padding: '8px 20px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Créer</button>
+                <button type="button" onClick={() => setShowForm(false)} style={{ padding: '8px 20px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Annuler</button>
               </div>
             </form>
           </div>
         )}
 
-        <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e8eaed', overflow: 'hidden' }}>
-          {loading ? (
-            <div style={{ padding: '40px', textAlign: 'center', color: '#888' }}>Chargement...</div>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-              <thead>
-                <tr style={{ background: '#f8f9fa' }}>
-                  {['#', 'Nom', 'Email', 'Rôle', 'Fonction', 'Actions'].map(h => (
-                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#888', fontWeight: '500', borderBottom: '1px solid #e8eaed' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((user) => (
-                  <tr key={user.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                    <td style={{ padding: '10px 14px', color: '#aaa' }}>{user.id}</td>
-                    <td style={{ padding: '10px 14px', fontWeight: '500', color: '#2c2c2c' }}>
-                      {user.first_name || user.username} {user.last_name}
-                    </td>
-                    <td style={{ padding: '10px 14px', color: '#555' }}>{user.email || '—'}</td>
-                    <td style={{ padding: '10px 14px' }}>
-                      <span style={{
-                        padding: '2px 8px', borderRadius: '4px', fontSize: '11px',
-                        background: `${roleColor[user.role] || '#888'}20`,
-                        color: roleColor[user.role] || '#888', fontWeight: '600'
-                      }}>
-                        {roleLabel[user.role] || user.role}
-                      </span>
-                    </td>
-                    <td style={{ padding: '10px 14px', color: '#555' }}>{user.fonction || '—'}</td>
-                    <td style={{ padding: '10px 14px' }}>
-                      <button
-                        onClick={() => handleDelete(user.id)}
-                        style={{
-                          padding: '4px 10px', background: '#fdeaea',
-                          color: '#c0392b', border: '1px solid #f5c6c6',
-                          borderRadius: '4px', fontSize: '11px', cursor: 'pointer'
-                        }}
-                      >
-                        Supprimer
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        {loading ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#888' }}>Chargement...</div>
+        ) : (
+          <SortableTable
+            emptyMessage="Aucun utilisateur"
+            columns={[
+              {
+                key: 'id', label: '#',
+                render: (_v: any, row: any) => <span style={{ color: '#aaa' }}>{row.id}</span>
+              },
+              {
+                key: 'nom_complet', label: 'Nom',
+                render: (_v: any, row: any) => <span style={{ fontWeight: '500', color: '#2c2c2c' }}>{row.nom_complet}</span>
+              },
+              {
+                key: 'email', label: 'Email',
+                render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.email || '—'}</span>
+              },
+              {
+                key: 'role_label', label: 'Rôle',
+                render: (_v: any, row: any) => (
+                  <span style={{
+                    padding: '2px 8px', borderRadius: '4px', fontSize: '11px',
+                    background: `${roleColor[row.role] || '#888'}20`,
+                    color: roleColor[row.role] || '#888', fontWeight: '600'
+                  }}>
+                    {roleLabel[row.role] || row.role}
+                  </span>
+                )
+              },
+              {
+                key: 'fonction', label: 'Fonction',
+                render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.fonction || '—'}</span>
+              },
+              {
+                key: 'actions', label: 'Actions', sortable: false,
+                render: (_v: any, row: any) => (
+                  <button onClick={() => handleDelete(row.id)} style={{
+                    padding: '4px 10px', background: '#fdeaea',
+                    color: '#c0392b', border: '1px solid #f5c6c6',
+                    borderRadius: '4px', fontSize: '11px', cursor: 'pointer'
+                  }}>Supprimer</button>
+                )
+              },
+            ]}
+            data={tableData}
+          />
+        )}
       </div>
     </Layout>
   )

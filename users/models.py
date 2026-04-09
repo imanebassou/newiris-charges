@@ -5,6 +5,7 @@ class CustomUser(AbstractUser):
     
     class Role(models.TextChoices):
         ADMIN = 'admin', 'Admin'
+        SUPER_ADMIN = 'super_admin', 'Super Admin'
         ACHAT = 'achat', 'Achat'
         OTHERS = 'others', 'Others'
         RESPONSABLE_TECHNIQUE = 'responsable_technique', 'Responsable Technique'

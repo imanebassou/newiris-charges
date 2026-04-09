@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import api from '../api/axios'
+import SortableTable from '../components/SortableTable'
 
 const Fournisseurs = () => {
   document.title = 'Fournisseurs — Newiris'
@@ -97,6 +98,14 @@ const Fournisseurs = () => {
     fontSize: '13px', outline: 'none',
   }
 
+  // Préparer les données pour SortableTable
+  const tableData = fournisseurs.map(f => ({
+    ...f,
+    date_fin_rf_fmt: f.date_fin_rf ? new Date(f.date_fin_rf).toLocaleDateString('fr-FR') : '—',
+    echeance_str: `${f.echeance} j`,
+    etat_label: getEtatStyle(f.etat_regularite).label,
+  }))
+
   return (
     <Layout>
       <div style={{ padding: '20px' }}>
@@ -156,86 +165,69 @@ const Fournisseurs = () => {
         )}
 
         {/* TABLEAU */}
-        <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e8eaed', overflow: 'hidden' }}>
-          {loading ? (
-            <div style={{ padding: '40px', textAlign: 'center', color: '#888' }}>Chargement...</div>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-              <thead>
-                <tr style={{ background: '#f8f9fa' }}>
-                  {['Nom du fournisseur', 'Type de contrat', 'Date de fin de RF', 'Échéance (jours)', 'État de régularité', 'Actions'].map(h => (
-                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#888', fontWeight: '500', borderBottom: '1px solid #e8eaed' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {fournisseurs.map(f => {
-                  const etatStyle = getEtatStyle(f.etat_regularite)
-                  const echeanceColor = getEcheanceColor(f.echeance)
-                  return (
-                    <tr key={f.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                      <td style={{ padding: '10px 14px', fontWeight: '500', color: '#2c2c2c' }}>{f.nom}</td>
-                      <td style={{ padding: '10px 14px', color: '#555' }}>{f.type_contrat}</td>
-
-                      {/* DATE MODIFIABLE */}
-                      <td style={{ padding: '10px 14px' }}>
-                        {editingId === f.id ? (
-                          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                            <input type="date" value={editingDate} onChange={e => setEditingDate(e.target.value)}
-                              style={{ ...inputStyle, width: '140px', padding: '4px 8px' }} />
-                            <button onClick={() => handleUpdateDate(f.id)} style={{ padding: '4px 8px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✓</button>
-                            <button onClick={() => { setEditingId(null); setEditingDate('') }} style={{ padding: '4px 8px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✕</button>
-                          </div>
-                        ) : (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ color: '#555' }}>{new Date(f.date_fin_rf).toLocaleDateString('fr-FR')}</span>
-                            <button onClick={() => { setEditingId(f.id); setEditingDate(f.date_fin_rf) }}
-                              style={{ padding: '2px 6px', background: '#e8f4fb', color: '#0099cc', border: '1px solid #b3d9f0', borderRadius: '3px', fontSize: '10px', cursor: 'pointer' }}>✏️</button>
-                          </div>
-                        )}
-                      </td>
-
-                      {/* ÉCHÉANCE */}
-                      <td style={{ padding: '10px 14px', fontWeight: '700', color: echeanceColor }}>
-                        {f.echeance} j
-                      </td>
-
-                      {/* ÉTAT AUTO */}
-                      <td style={{ padding: '10px 14px' }}>
-                        <span style={{
-                          padding: '4px 12px', borderRadius: '4px', fontSize: '11px',
-                          fontWeight: '600', display: 'inline-block',
-                          background: etatStyle.bg, color: etatStyle.color,
-                        }}>
-                          {etatStyle.label}
-                        </span>
-                      </td>
-
-                      {/* ACTIONS */}
-                      <td style={{ padding: '10px 14px' }}>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button onClick={() => handleRenouveler(f.id)} style={{
-                            padding: '4px 10px', background: '#e8f4fb', color: '#0099cc',
-                            border: '1px solid #b3d9f0', borderRadius: '4px', fontSize: '11px', cursor: 'pointer'
-                          }}>Renouveler</button>
-                          <button onClick={() => handleDelete(f.id)} style={{
-                            padding: '4px 10px', background: '#fdeaea', color: '#c0392b',
-                            border: '1px solid #f5c6c6', borderRadius: '4px', fontSize: '11px', cursor: 'pointer'
-                          }}>Supprimer</button>
-                        </div>
-                      </td>
-                    </tr>
+        {loading ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#888' }}>Chargement...</div>
+        ) : (
+          <SortableTable
+            emptyMessage="Aucun fournisseur"
+            columns={[
+              {
+                key: 'nom', label: 'Nom du fournisseur',
+                render: (_v: any, row: any) => <span style={{ fontWeight: '500', color: '#2c2c2c' }}>{row.nom}</span>
+              },
+              {
+                key: 'type_contrat', label: 'Type de contrat',
+                render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.type_contrat}</span>
+              },
+              {
+                key: 'date_fin_rf_fmt', label: 'Date de fin de RF', sortable: false,
+                render: (_v: any, row: any) => (
+                  editingId === row.id ? (
+                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                      <input type="date" value={editingDate} onChange={e => setEditingDate(e.target.value)}
+                        style={{ ...inputStyle, width: '140px', padding: '4px 8px' }} />
+                      <button onClick={() => handleUpdateDate(row.id)} style={{ padding: '4px 8px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✓</button>
+                      <button onClick={() => { setEditingId(null); setEditingDate('') }} style={{ padding: '4px 8px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✕</button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: '#555' }}>{new Date(row.date_fin_rf).toLocaleDateString('fr-FR')}</span>
+                      <button onClick={() => { setEditingId(row.id); setEditingDate(row.date_fin_rf) }}
+                        style={{ padding: '2px 6px', background: '#e8f4fb', color: '#0099cc', border: '1px solid #b3d9f0', borderRadius: '3px', fontSize: '10px', cursor: 'pointer' }}>✏️</button>
+                    </div>
                   )
-                })}
-                {fournisseurs.length === 0 && (
-                  <tr>
-                    <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: '#aaa' }}>Aucun fournisseur</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          )}
-        </div>
+                )
+              },
+              {
+                key: 'echeance', label: 'Échéance (jours)',
+                render: (_v: any, row: any) => (
+                  <span style={{ fontWeight: '700', color: getEcheanceColor(row.echeance) }}>{row.echeance} j</span>
+                )
+              },
+              {
+                key: 'etat_label', label: 'État de régularité',
+                render: (_v: any, row: any) => {
+                  const etatStyle = getEtatStyle(row.etat_regularite)
+                  return (
+                    <span style={{ padding: '4px 12px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', display: 'inline-block', background: etatStyle.bg, color: etatStyle.color }}>
+                      {etatStyle.label}
+                    </span>
+                  )
+                }
+              },
+              {
+                key: 'actions', label: 'Actions', sortable: false,
+                render: (_v: any, row: any) => (
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button onClick={() => handleRenouveler(row.id)} style={{ padding: '4px 10px', background: '#e8f4fb', color: '#0099cc', border: '1px solid #b3d9f0', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>Renouveler</button>
+                    <button onClick={() => handleDelete(row.id)} style={{ padding: '4px 10px', background: '#fdeaea', color: '#c0392b', border: '1px solid #f5c6c6', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>Supprimer</button>
+                  </div>
+                )
+              },
+            ]}
+            data={tableData}
+          />
+        )}
       </div>
     </Layout>
   )

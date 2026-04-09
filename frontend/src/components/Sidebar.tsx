@@ -12,22 +12,21 @@ const Sidebar = () => {
   }
 
   const navItems = [
+    { label: 'Utilisateurs', path: '/users', roles: ['super_admin'] },
+    { label: 'Services', path: '/services', roles: ['super_admin'] },
     { label: 'Dashboard', path: '/dashboard', roles: ['admin', 'others'] },
-    { label: 'Utilisateurs', path: '/users', roles: ['admin'] },
-    { label: 'Services', path: '/services', roles: ['admin'] },
     { label: 'Banque', path: '/banque', roles: ['admin'] },
+    { label: 'Caisse', path: '/caisse', roles: ['admin', 'achat', 'responsable_technique'] },
     { label: 'Prévisions', path: '/previsions', roles: ['admin'] },
     { label: 'Charges fixes', path: '/charges-fixes', roles: ['admin'] },
     { label: 'Charges variables', path: '/charges-variables', roles: ['admin'] },
     { label: 'Salaires', path: '/salaires', roles: ['admin'] },
-    { label: 'Ajouter charge variable', path: '/ajoute-charges', roles: ['achat'] },
     { label: 'Fournisseurs', path: '/fournisseurs', roles: ['admin', 'achat'] },
-    { label: 'Caisse', path: '/caisse', roles: ['admin', 'achat', 'responsable_technique'] },
     { label: 'Demandes chèques', path: '/demandes-cheques', roles: ['admin', 'achat'] },
-    { label: 'Véhicules', path: '/vehicules', roles: [ 'responsable_technique'] },
-    { label: 'État équipe', path: '/equipe', roles: [ 'responsable_technique'] },
-    { label: 'Chantiers', path: '/chantiers', roles: ['responsable_technique'] },
-   
+    { label: 'Véhicules', path: '/vehicules', roles: ['admin', 'responsable_technique'] },
+    { label: 'État équipe', path: '/equipe', roles: ['admin', 'responsable_technique'] },
+    { label: 'Chantiers', path: '/chantiers', roles: ['admin', 'responsable_technique'] },
+    { label: 'Ajouter charge variable', path: '/ajoute-charges', roles: ['achat'] },
   ]
 
   const filteredItems = navItems.filter(item =>
