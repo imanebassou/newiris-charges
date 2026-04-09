@@ -21,7 +21,7 @@ const ChargesFixes = () => {
   const [newCat, setNewCat] = useState('')
   const [showAddPerson, setShowAddPerson] = useState(false)
   const [newPerson, setNewPerson] = useState('')
-  const [form, setForm] = useState({ service: '', categorie: '', montant: '' })
+  const [form, setForm] = useState({ service: '', categorie: '', montant: '', date: '' })
 
   const fetchData = async () => {
     try {
@@ -46,9 +46,10 @@ const ChargesFixes = () => {
         service: parseInt(form.service),
         categorie: form.categorie,
         montant: parseFloat(form.montant),
+        date: form.date || null,
       })
       setShowForm(false)
-      setForm({ service: selectedService?.id?.toString() || '', categorie: '', montant: '' })
+      setForm({ service: selectedService?.id?.toString() || '', categorie: '', montant: '', date: '' })
       fetchData()
     } catch (err) { console.error(err) }
   }
@@ -85,6 +86,7 @@ const ChargesFixes = () => {
     index: i + 1,
     montant_fmt: `${parseFloat(c.montant).toLocaleString('fr-FR')} DH`,
     created_at_fmt: new Date(c.created_at).toLocaleDateString('fr-FR'),
+    date_fmt: c.date ? new Date(c.date).toLocaleDateString('fr-FR') : '—',
   })) : []
 
   if (loading) return <Layout><div style={{ padding: '40px', textAlign: 'center', color: '#888' }}>Chargement...</div></Layout>
@@ -147,7 +149,7 @@ const ChargesFixes = () => {
               <div style={{ background: '#fff', borderRadius: '8px', padding: '20px', border: '1px solid #e8eaed', marginBottom: '20px' }}>
                 <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#1a3a6b', marginBottom: '16px' }}>Nouvelle charge fixe — {selectedService.nom}</h3>
                 <form onSubmit={handleSubmit}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <div>
                       <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Personne *</label>
                       <select style={inputStyle} value={form.service}
@@ -186,6 +188,10 @@ const ChargesFixes = () => {
                       <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Montant (DH) *</label>
                       <input style={inputStyle} type="number" value={form.montant} onChange={e => setForm({ ...form, montant: e.target.value })} required placeholder="Ex: 5000" />
                     </div>
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Période (date)</label>
+                      <input style={inputStyle} type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
+                    </div>
                   </div>
                   <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
                     <button type="submit" style={{ padding: '8px 20px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Créer</button>
@@ -202,6 +208,7 @@ const ChargesFixes = () => {
                 { key: 'service', label: 'Personne', render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.service}</span> },
                 { key: 'categorie', label: 'Catégorie', render: (_v: any, row: any) => <span style={{ fontWeight: '500', color: '#2c2c2c' }}>{row.categorie}</span> },
                 { key: 'montant_fmt', label: 'Montant', render: (_v: any, row: any) => <span style={{ fontWeight: '600', color: '#0099cc' }}>{row.montant_fmt}</span> },
+                { key: 'date_fmt', label: 'Période', render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.date_fmt}</span> },
                 { key: 'created_at_fmt', label: 'Créé le', render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.created_at_fmt}</span> },
                 {
                   key: 'actions', label: 'Actions', sortable: false,

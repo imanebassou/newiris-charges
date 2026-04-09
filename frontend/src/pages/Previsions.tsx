@@ -118,9 +118,8 @@ const Previsions = () => {
     } catch (err) { console.error(err) }
   }
 
-  const handleDelete = async (e: React.MouseEvent, id: number) => {
+ const handleDelete = async (e: React.MouseEvent, id: number) => {
     e.stopPropagation()
-    if (!confirm('Supprimer cette prévision ?')) return
     try {
       await api.delete(`/previsions/${id}/`)
       fetchData()
