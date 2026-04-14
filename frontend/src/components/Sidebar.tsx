@@ -23,9 +23,9 @@ const Sidebar = () => {
     { label: 'Salaires', path: '/salaires', roles: ['admin'] },
     { label: 'Fournisseurs', path: '/fournisseurs', roles: ['admin', 'achat'] },
     { label: 'Demandes chèques', path: '/demandes-cheques', roles: ['admin', 'achat'] },
-    { label: 'Véhicules', path: '/vehicules', roles: ['admin', 'responsable_technique'] },
-    { label: 'État équipe', path: '/equipe', roles: ['admin', 'responsable_technique'] },
-    { label: 'Chantiers', path: '/chantiers', roles: ['admin', 'responsable_technique'] },
+    { label: 'Véhicules', path: '/vehicules', roles: ['responsable_technique'] },
+    { label: 'État équipe', path: '/equipe', roles: ['responsable_technique'] },
+    { label: 'Chantiers', path: '/chantiers', roles: ['responsable_technique'] },
     { label: 'Ajouter charge variable', path: '/ajoute-charges', roles: ['achat'] },
   ]
 

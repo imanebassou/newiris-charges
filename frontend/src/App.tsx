@@ -89,19 +89,19 @@ const App = () => {
       } />
 
       <Route path="/vehicules" element={
-        <PrivateRoute allowedRoles={['admin', 'super_admin', 'responsable_technique']}>
+        <PrivateRoute allowedRoles={['super_admin', 'responsable_technique']}>
           <Vehicules />
         </PrivateRoute>
       } />
 
       <Route path="/equipe" element={
-        <PrivateRoute allowedRoles={['admin', 'super_admin', 'responsable_technique']}>
+        <PrivateRoute allowedRoles={['super_admin', 'responsable_technique']}>
           <Equipe />
         </PrivateRoute>
       } />
 
       <Route path="/chantiers" element={
-        <PrivateRoute allowedRoles={['admin', 'super_admin', 'responsable_technique']}>
+        <PrivateRoute allowedRoles={['super_admin', 'responsable_technique']}>
           <Chantiers />
         </PrivateRoute>
       } />
