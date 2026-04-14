@@ -18,7 +18,6 @@ class SoldeCaisseViewSet(viewsets.ViewSet):
 
     def list(self, request):
         solde, _ = SoldeCaisse.objects.get_or_create(id=1)
-        # Ajouter les actions traitées des caisses personnelles
         actions_traitees = ActionCaisse.objects.filter(statut='traitee', caisse__isnull=False)
         total_perso = 0
         for a in actions_traitees:
@@ -27,7 +26,6 @@ class SoldeCaisseViewSet(viewsets.ViewSet):
             else:
                 total_perso -= a.montant
 
-        # Actions caisse principale traitées
         actions_principale = ActionCaisse.objects.filter(
             statut='traitee', is_caisse_principale=True
         )
@@ -93,6 +91,11 @@ class ActionCaisseViewSet(viewsets.ModelViewSet):
                 and instance.categorie == 'charge_variable'):
             self._creer_charge_variable(instance)
 
+        # Si statut passe à traitée ET c'est une caisse personnelle → copier dans caisse principale
+        if (old_statut != 'traitee' and instance.statut == 'traitee'
+                and instance.caisse is not None):
+            self._copier_dans_principale(instance)
+
         return response
 
     def partial_update(self, request, *args, **kwargs):
@@ -113,3 +116,29 @@ class ActionCaisseViewSet(viewsets.ModelViewSet):
             )
         except Exception as e:
             print(f"Erreur création charge variable: {e}")
+
+    def _copier_dans_principale(self, action):
+        try:
+            # Vérifier qu'une copie n'existe pas déjà
+            existing = ActionCaisse.objects.filter(
+                titre=action.titre,
+                montant=action.montant,
+                date=action.date,
+                is_caisse_principale=True,
+            ).first()
+            if not existing:
+                ActionCaisse.objects.create(
+                    type=action.type,
+                    titre=action.titre,
+                    categorie=action.categorie,
+                    montant=action.montant,
+                    date=action.date,
+                    description=action.description or '',
+                    personne=action.personne or '',
+                    statut='traitee',
+                    is_caisse_principale=True,
+                    caisse=None,
+                    service=action.service,
+                )
+        except Exception as e:
+            print(f"Erreur copie dans caisse principale: {e}")

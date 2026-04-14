@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'vehicules',
     'equipe',
     'chantiers',
+    'commandes',
 ]
 
 MIDDLEWARE = [

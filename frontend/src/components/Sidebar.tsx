@@ -27,6 +27,7 @@ const Sidebar = () => {
     { label: 'État équipe', path: '/equipe', roles: ['responsable_technique'] },
     { label: 'Chantiers', path: '/chantiers', roles: ['responsable_technique'] },
     { label: 'Ajouter charge variable', path: '/ajoute-charges', roles: ['achat'] },
+    { label: 'Gestion de commandes', path: '/commandes', roles: ['admin'] },
   ]
 
   const filteredItems = navItems.filter(item =>

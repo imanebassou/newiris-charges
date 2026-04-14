@@ -16,6 +16,9 @@ import DemandesCheques from './pages/DemandesCheques'
 import Vehicules from './pages/Vehicules'
 import Equipe from './pages/Equipe'
 import Chantiers from './pages/Chantiers'
+import Commandes from './pages/Commandes'
+
+
 
 const App = () => {
   return (
@@ -111,6 +114,12 @@ const App = () => {
           <AjouteCharges />
         </PrivateRoute>
       } />
+      
+      <Route path="/commandes" element={
+  <PrivateRoute allowedRoles={['admin']}>
+    <Commandes />
+  </PrivateRoute>
+} />
 
       <Route path="/unauthorized" element={
         <div style={{ padding: '40px', textAlign: 'center', color: '#e84c3d', fontSize: '18px' }}>
@@ -118,6 +127,7 @@ const App = () => {
         </div>
       } />
     </Routes>
+    
   )
 }
 

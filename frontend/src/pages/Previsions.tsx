@@ -28,6 +28,9 @@ const Previsions = () => {
   const [previsions, setPrevisions] = useState<any[]>([])
   const [ecarts, setEcarts] = useState<any>(null)
   const [soldeBase, setSoldeBase] = useState(0)
+  const [totalEntreesMois, setTotalEntreesMois] = useState(0)
+  const [totalSortiesMois, setTotalSortiesMois] = useState(0)
+  const [ecartMois, setEcartMois] = useState(0)
   const [loading, setLoading] = useState(true)
   const [activeView, setActiveView] = useState<'dashboard' | 1 | 2 | 3 | 4>('dashboard')
   const [showForm, setShowForm] = useState<{ semaine: number; type: string } | null>(null)
@@ -58,6 +61,9 @@ const Previsions = () => {
       setPrevisions(prevsRes.data)
       setEcarts(ecartsRes.data.ecarts)
       setSoldeBase(ecartsRes.data.solde_base)
+      setTotalEntreesMois(ecartsRes.data.total_entrees_mois || 0)
+      setTotalSortiesMois(ecartsRes.data.total_sorties_mois || 0)
+      setEcartMois(ecartsRes.data.ecart_mois || 0)
       setUsers(usersRes.data)
     } catch (err) { console.error(err) }
     finally { setLoading(false) }
@@ -131,9 +137,7 @@ const Previsions = () => {
     for (const row of rows) {
       try {
         await api.post('/previsions/', {
-          type,
-          semaine: semaineNum,
-          mois, annee,
+          type, semaine: semaineNum, mois, annee,
           titre: row.titre || '',
           description: row.personne || row.description || '',
           montant: parseFloat(String(row.montant).replace(',', '.')),
@@ -197,54 +201,100 @@ const Previsions = () => {
   const prevsBySemaineAndType = (semaine: number, type: string) => previsions.filter(p => p.semaine === semaine && p.type === type)
 
   const renderCard = (prev: any) => {
-    const isEntree = prev.type === 'entree'
-    const isEditing = editingCard === prev.id
+  const isEntree = prev.type === 'entree'
+  const isEditing = editingCard === prev.id
+  const isCloturee = prev.statut === 'cloturee'
 
-    if (isEditing) {
-      return (
-        <div key={prev.id} style={{ background: '#fff', borderRadius: '8px', padding: '14px', border: '2px solid #0099cc', borderLeft: `4px solid ${isEntree ? '#1a7a40' : '#c0392b'}`, marginBottom: '8px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div><label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '2px' }}>Titre</label><input style={smallInput} value={editForm.titre} onChange={e => setEditForm({ ...editForm, titre: e.target.value })} /></div>
-            <div><label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '2px' }}>Montant (DH)</label><input style={smallInput} type="number" value={editForm.montant} onChange={e => setEditForm({ ...editForm, montant: e.target.value })} /></div>
-            <div><label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '2px' }}>Date (change la semaine auto)</label><input style={smallInput} type="date" value={editForm.date_prevision} onChange={e => setEditForm({ ...editForm, date_prevision: e.target.value })} /></div>
-            <div><label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '2px' }}>Catégorie</label><select style={smallInput} value={editForm.categorie} onChange={e => setEditForm({ ...editForm, categorie: e.target.value })}><option value="">Aucune</option>{categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select></div>
-            <div><label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '2px' }}>Personne</label><select style={smallInput} value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })}><option value="">Aucune</option>{users.map((u: any) => <option key={u.id} value={u.username}>{u.username}</option>)}</select></div>
-            <div><label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '2px' }}>Statut</label><select style={smallInput} value={editForm.statut} onChange={e => setEditForm({ ...editForm, statut: e.target.value })}><option value="en_cours">En cours</option><option value="traitee">Traitée</option><option value="cloturee">Clôturée</option></select></div>
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <button onClick={() => handleEditSave(prev.id)} style={{ flex: 1, padding: '6px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' }}>Sauvegarder</button>
-              <button onClick={() => setEditingCard(null)} style={{ flex: 1, padding: '6px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>Annuler</button>
-            </div>
-          </div>
-        </div>
-      )
-    }
-
+  if (isEditing) {
     return (
-      <div key={prev.id} style={{ background: '#fff', borderRadius: '8px', padding: '12px 14px', marginBottom: '8px', border: '1px solid #e8eaed', borderLeft: `4px solid ${isEntree ? '#1a7a40' : '#c0392b'}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-          <span style={{ fontSize: '13px', fontWeight: '700', color: '#2c2c2c' }}>{prev.titre}</span>
-          <div style={{ display: 'flex', gap: '4px' }}>
-            <button onClick={e => { e.stopPropagation(); setEditingCard(prev.id); setEditForm({ titre: prev.titre, description: prev.description || '', montant: String(prev.montant), date_prevision: prev.date_prevision, categorie: prev.categorie || '', statut: prev.statut }) }} style={{ background: '#e8f4fb', border: '1px solid #b3d9f0', color: '#0099cc', fontSize: '11px', cursor: 'pointer', padding: '2px 8px', borderRadius: '4px' }}>✏️</button>
-            <button onClick={e => handleDelete(e, prev.id)} style={{ background: '#fdeaea', border: '1px solid #f5c6c6', color: '#c0392b', fontSize: '11px', cursor: 'pointer', padding: '2px 8px', borderRadius: '4px', fontWeight: '600' }}>Supprimer</button>
+      <div key={prev.id} style={{
+        background: '#fff', borderRadius: '8px', padding: '14px',
+        border: '2px solid #0099cc', borderLeft: `4px solid ${isEntree ? '#1a7a40' : '#c0392b'}`,
+        marginBottom: '6px',
+      }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div><label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '2px' }}>Titre</label><input style={smallInput} value={editForm.titre} onChange={e => setEditForm({ ...editForm, titre: e.target.value })} /></div>
+          <div><label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '2px' }}>Montant (DH)</label><input style={smallInput} type="number" value={editForm.montant} onChange={e => setEditForm({ ...editForm, montant: e.target.value })} /></div>
+          <div><label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '2px' }}>Date</label><input style={smallInput} type="date" value={editForm.date_prevision} onChange={e => setEditForm({ ...editForm, date_prevision: e.target.value })} /></div>
+          <div><label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '2px' }}>Catégorie</label><select style={smallInput} value={editForm.categorie} onChange={e => setEditForm({ ...editForm, categorie: e.target.value })}><option value="">Aucune</option>{categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select></div>
+          <div><label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '2px' }}>Personne</label><select style={smallInput} value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })}><option value="">Aucune</option>{users.map((u: any) => <option key={u.id} value={u.username}>{u.username}</option>)}</select></div>
+          <div><label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '2px' }}>Statut</label><select style={smallInput} value={editForm.statut} onChange={e => setEditForm({ ...editForm, statut: e.target.value })}><option value="en_cours">En cours</option><option value="traitee">Traitée</option><option value="cloturee">Clôturée</option></select></div>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button onClick={() => handleEditSave(prev.id)} style={{ flex: 1, padding: '6px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' }}>Sauvegarder</button>
+            <button onClick={() => setEditingCard(null)} style={{ flex: 1, padding: '6px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>Annuler</button>
           </div>
         </div>
-        <div style={{ fontSize: '16px', fontWeight: '800', color: isEntree ? '#1a7a40' : '#c0392b', marginBottom: '4px' }}>
-          {isEntree ? '+' : '-'}{parseFloat(prev.montant).toLocaleString('fr-FR')} DH
-        </div>
-        <div style={{ fontSize: '11px', color: '#888', marginBottom: '8px' }}>
-          {new Date(prev.date_prevision).toLocaleDateString('fr-FR')}
-          {prev.description && <span style={{ marginLeft: '6px', background: '#f0f4f8', padding: '1px 6px', borderRadius: '3px' }}>👤 {prev.description}</span>}
-          {prev.categorie && <span style={{ marginLeft: '6px', background: '#f0f4f8', padding: '1px 6px', borderRadius: '3px' }}>🏷️ {prev.categorie}</span>}
-        </div>
-        <select value={prev.statut} onChange={e => handleStatutChange(prev.id, e.target.value)}
-          style={{ width: '100%', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', border: '1px solid #e0e0e0', cursor: 'pointer', background: getStatutColor(prev.statut).bg, color: getStatutColor(prev.statut).color, fontWeight: '600' }}>
-          <option value="en_cours">En cours</option>
-          <option value="traitee">Traitée</option>
-          <option value="cloturee">Clôturée</option>
-        </select>
       </div>
     )
   }
+
+  return (
+    <div key={prev.id} style={{
+      background: isCloturee ? '#f5f5f5' : '#fff',
+      borderRadius: '6px',
+      padding: '8px 10px',
+      marginBottom: '6px',
+      border: '1px solid #e8eaed',
+      borderLeft: `3px solid ${isCloturee ? '#aaa' : isEntree ? '#1a7a40' : '#c0392b'}`,
+      boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+      opacity: isCloturee ? 0.7 : 1,
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {/* INFO PRINCIPALE */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '12px', fontWeight: '700', color: isCloturee ? '#aaa' : '#2c2c2c', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '120px' }}>
+              {prev.titre}
+            </span>
+            <span style={{ fontSize: '13px', fontWeight: '800', color: isCloturee ? '#aaa' : isEntree ? '#1a7a40' : '#c0392b', whiteSpace: 'nowrap' }}>
+              {isEntree ? '+' : '-'}{parseFloat(prev.montant).toLocaleString('fr-FR')} DH
+            </span>
+          </div>
+          <div style={{ fontSize: '10px', color: '#aaa', marginTop: '2px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            <span>{new Date(prev.date_prevision).toLocaleDateString('fr-FR')}</span>
+            {prev.description && <span>👤 {prev.description}</span>}
+            {prev.categorie && <span>🏷️ {prev.categorie}</span>}
+          </div>
+        </div>
+
+        {/* ACTIONS */}
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexShrink: 0, marginLeft: '8px' }}>
+          {/* Statut badge */}
+          <span style={{
+            fontSize: '9px', padding: '2px 6px', borderRadius: '3px',
+            background: getStatutColor(prev.statut).bg,
+            color: getStatutColor(prev.statut).color,
+            fontWeight: '600', whiteSpace: 'nowrap',
+          }}>
+            {prev.statut === 'traitee' ? 'Traitée' : prev.statut === 'cloturee' ? 'Clôturée' : 'En cours'}
+          </span>
+
+          {/* Boutons seulement si pas clôturée */}
+          {!isCloturee && (
+            <>
+              <button onClick={e => {
+                e.stopPropagation()
+                setEditingCard(prev.id)
+                setEditForm({ titre: prev.titre, description: prev.description || '', montant: String(prev.montant), date_prevision: prev.date_prevision, categorie: prev.categorie || '', statut: prev.statut })
+              }} style={{ background: '#e8f4fb', border: '1px solid #b3d9f0', color: '#0099cc', fontSize: '10px', cursor: 'pointer', padding: '2px 6px', borderRadius: '3px' }}>✏️</button>
+              <button onClick={e => handleDelete(e, prev.id)} style={{ background: '#fdeaea', border: '1px solid #f5c6c6', color: '#c0392b', fontSize: '10px', cursor: 'pointer', padding: '2px 6px', borderRadius: '3px' }}>🗑</button>
+            </>
+          )}
+
+          {/* Statut dropdown seulement si pas clôturée */}
+          {!isCloturee && (
+            <select value={prev.statut} onChange={e => handleStatutChange(prev.id, e.target.value)}
+              style={{ padding: '2px 4px', borderRadius: '3px', fontSize: '10px', border: '1px solid #e0e0e0', cursor: 'pointer', background: getStatutColor(prev.statut).bg, color: getStatutColor(prev.statut).color, fontWeight: '600' }}>
+              <option value="en_cours">En cours</option>
+              <option value="traitee">Traitée</option>
+              <option value="cloturee">Clôturée</option>
+            </select>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
   const renderSemaineView = (semaineNum: number) => {
     const semaineInfo = getSemaineLabel(semaineNum)
@@ -278,45 +328,31 @@ const Previsions = () => {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-          {/* ENTREES */}
           <div style={{ background: '#f8f9fa', borderRadius: '10px', border: '1px solid #e8eaed', overflow: 'hidden' }}>
             <div style={{ background: '#1a7a40', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ color: '#fff', fontWeight: '700', fontSize: '14px' }}>ENTREES</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ color: '#a8d5b5', fontSize: '12px' }}>{entrees.length} prévision{entrees.length > 1 ? 's' : ''}</span>
-                <ImportExcel
-                  onImport={(rows) => handleImportPrevisions('entree', semaineNum, rows)}
-                  columns={importColumns}
-                />
-                <button onClick={() => setShowForm({ semaine: semaineNum, type: 'entree' })}
-                  style={{ padding: '4px 12px', background: '#fff', color: '#1a7a40', border: 'none', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', fontWeight: '700' }}>+ Ajouter</button>
+                <ImportExcel onImport={(rows) => handleImportPrevisions('entree', semaineNum, rows)} columns={importColumns} />
+                <button onClick={() => setShowForm({ semaine: semaineNum, type: 'entree' })} style={{ padding: '4px 12px', background: '#fff', color: '#1a7a40', border: 'none', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', fontWeight: '700' }}>+ Ajouter</button>
               </div>
             </div>
             <div style={{ padding: '12px' }}>
-              {entrees.length === 0 ? (
-                <div style={{ textAlign: 'center', color: '#aaa', fontSize: '12px', padding: '30px 0', fontStyle: 'italic' }}>Aucune entrée</div>
-              ) : entrees.map(prev => renderCard(prev))}
+              {entrees.length === 0 ? <div style={{ textAlign: 'center', color: '#aaa', fontSize: '12px', padding: '30px 0', fontStyle: 'italic' }}>Aucune entrée</div> : entrees.map(prev => renderCard(prev))}
             </div>
           </div>
 
-          {/* SORTIES */}
           <div style={{ background: '#f8f9fa', borderRadius: '10px', border: '1px solid #e8eaed', overflow: 'hidden' }}>
             <div style={{ background: '#c0392b', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ color: '#fff', fontWeight: '700', fontSize: '14px' }}>SORTIES</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ color: '#f5c6c6', fontSize: '12px' }}>{sorties.length} prévision{sorties.length > 1 ? 's' : ''}</span>
-                <ImportExcel
-                  onImport={(rows) => handleImportPrevisions('sortie', semaineNum, rows)}
-                  columns={importColumns}
-                />
-                <button onClick={() => setShowForm({ semaine: semaineNum, type: 'sortie' })}
-                  style={{ padding: '4px 12px', background: '#fff', color: '#c0392b', border: 'none', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', fontWeight: '700' }}>+ Ajouter</button>
+                <ImportExcel onImport={(rows) => handleImportPrevisions('sortie', semaineNum, rows)} columns={importColumns} />
+                <button onClick={() => setShowForm({ semaine: semaineNum, type: 'sortie' })} style={{ padding: '4px 12px', background: '#fff', color: '#c0392b', border: 'none', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', fontWeight: '700' }}>+ Ajouter</button>
               </div>
             </div>
             <div style={{ padding: '12px' }}>
-              {sorties.length === 0 ? (
-                <div style={{ textAlign: 'center', color: '#aaa', fontSize: '12px', padding: '30px 0', fontStyle: 'italic' }}>Aucune sortie</div>
-              ) : sorties.map(prev => renderCard(prev))}
+              {sorties.length === 0 ? <div style={{ textAlign: 'center', color: '#aaa', fontSize: '12px', padding: '30px 0', fontStyle: 'italic' }}>Aucune sortie</div> : sorties.map(prev => renderCard(prev))}
             </div>
           </div>
         </div>
@@ -358,11 +394,28 @@ const Previsions = () => {
           </select>
         </div>
 
-        <div style={{ background: '#fff', borderRadius: '8px', padding: '16px', border: '1px solid #e8eaed', borderTop: '3px solid #1a3a6b', marginBottom: '20px', display: 'inline-block', minWidth: '200px' }}>
-          <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Solde (basé sur les prévisions traitées)</div>
-          <div style={{ fontSize: '22px', fontWeight: '700', color: '#1a3a6b' }}>{soldeBase.toLocaleString('fr-FR')} DH</div>
+        {/* KPI CARDS */}
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
+          <div style={{ background: '#fff', borderRadius: '8px', padding: '16px', border: '1px solid #e8eaed', borderTop: '3px solid #1a3a6b', minWidth: '200px' }}>
+            <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Solde basé sur prévisions traitées</div>
+            <div style={{ fontSize: '22px', fontWeight: '700', color: '#1a3a6b' }}>{soldeBase.toLocaleString('fr-FR')} DH</div>
+          </div>
+          <div style={{ background: '#fff', borderRadius: '8px', padding: '16px', border: '1px solid #e8eaed', borderTop: '3px solid #1a7a40', minWidth: '180px' }}>
+            <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Total entrées mois</div>
+            <div style={{ fontSize: '22px', fontWeight: '700', color: '#1a7a40' }}>+{totalEntreesMois.toLocaleString('fr-FR')} DH</div>
+          </div>
+          <div style={{ background: '#fff', borderRadius: '8px', padding: '16px', border: '1px solid #e8eaed', borderTop: '3px solid #c0392b', minWidth: '180px' }}>
+            <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Total sorties mois</div>
+            <div style={{ fontSize: '22px', fontWeight: '700', color: '#c0392b' }}>-{totalSortiesMois.toLocaleString('fr-FR')} DH</div>
+          </div>
+          <div style={{ background: '#fff', borderRadius: '8px', padding: '16px', border: '1px solid #e8eaed', borderTop: `3px solid ${ecartMois >= 0 ? '#1a7a40' : '#c0392b'}`, minWidth: '180px' }}>
+            <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Écart du mois</div>
+            <div style={{ fontSize: '22px', fontWeight: '700', color: ecartMois >= 0 ? '#1a7a40' : '#c0392b' }}>{ecartMois.toLocaleString('fr-FR')} DH</div>
+            <div style={{ fontSize: '10px', color: '#aaa', marginTop: '2px' }}>Entrées - Sorties (S1+S2+S3+S4)</div>
+          </div>
         </div>
 
+        {/* TABS */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
           <button onClick={() => setActiveView('dashboard')} style={tabBtn(activeView === 'dashboard')}>Dashboard</button>
           {[1, 2, 3, 4].map(s => (

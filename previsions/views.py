@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from .models import Prevision
 from .serializers import PrevisionSerializer
-from banque.models import SoldeInitial, ActionBanque
+from banque.models import ActionBanque
 from decimal import Decimal
 
 
@@ -54,9 +54,14 @@ def ecarts_view(request):
 
     # Solde basé sur actions banque traitées uniquement
     actions = ActionBanque.objects.filter(statut='traitee')
-    entrees = sum(float(a.montant) for a in actions if a.type == 'entree')
-    sorties = sum(float(a.montant) for a in actions if a.type == 'sortie')
-    solde_base = entrees - sorties
+    entrees_banque = sum(float(a.montant) for a in actions if a.type == 'entree')
+    sorties_banque = sum(float(a.montant) for a in actions if a.type == 'sortie')
+    solde_base = entrees_banque - sorties_banque
+
+    # Totaux du mois (toutes semaines confondues)
+    total_entrees_mois = sum(float(p.montant) for p in previsions if p.type == 'entree')
+    total_sorties_mois = sum(float(p.montant) for p in previsions if p.type == 'sortie')
+    ecart_mois = total_entrees_mois - total_sorties_mois
 
     ecarts = {}
     solde_courant = solde_base
@@ -77,4 +82,7 @@ def ecarts_view(request):
     return Response({
         'solde_base': solde_base,
         'ecarts': ecarts,
+        'total_entrees_mois': total_entrees_mois,
+        'total_sorties_mois': total_sorties_mois,
+        'ecart_mois': ecart_mois,
     })
