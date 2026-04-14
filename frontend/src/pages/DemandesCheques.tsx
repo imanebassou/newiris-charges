@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import api from '../api/axios'
 import SortableTable from '../components/SortableTable'
+import ImportExcel from '../components/ImportExcel'
 
 const TYPES_PAIEMENT_DEFAULT = ['Chèque', 'Virement', 'Espèces', 'Carte bancaire']
 
@@ -58,13 +59,11 @@ const DemandesCheques = () => {
   }
 
   const handleDelete = async (id: number) => {
-    await api.delete(`/cheques/demandes/${id}/`)
-    fetchData()
+    await api.delete(`/cheques/demandes/${id}/`); fetchData()
   }
 
   const updateField = async (id: number, data: any) => {
-    await api.patch(`/cheques/demandes/${id}/`, data)
-    fetchData()
+    await api.patch(`/cheques/demandes/${id}/`, data); fetchData()
   }
 
   const handleAddFournisseur = async () => {
@@ -86,12 +85,24 @@ const DemandesCheques = () => {
     setNewType(''); setShowAddType(false)
   }
 
-  const inputStyle = {
-    width: '100%', padding: '8px 12px',
-    border: '1px solid #e0e0e0', borderRadius: '6px',
-    fontSize: '13px', outline: 'none',
+  const handleImport = async (rows: any[]) => {
+    for (const row of rows) {
+      try {
+        await api.post('/cheques/demandes/', {
+          titre: row.titre || '',
+          fournisseur: null,
+          montant: parseFloat(String(row.montant).replace(',', '.')),
+          date_souhaitee_signature: row.date_souhaitee_signature || row.date || '',
+          categorie: row.categorie || 'Paiement fournisseur',
+          etat_signature: row.etat_signature === 'Signé' || row.etat_signature === 'signe' ? 'signe' : 'en_cours',
+          etat_livraison: row.etat_livraison === 'Livré' || row.etat_livraison === 'livre' ? 'livre' : 'en_cours',
+        })
+      } catch (err) { console.error(err) }
+    }
+    fetchData()
   }
 
+  const inputStyle = { width: '100%', padding: '8px 12px', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '13px', outline: 'none' }
   const addNewInputStyle = { display: 'flex', gap: '6px', marginTop: '6px' }
 
   const tableData = demandes.map(d => ({
@@ -113,10 +124,20 @@ const DemandesCheques = () => {
             <h1 style={{ fontSize: '18px', fontWeight: '700', color: '#1a3a6b' }}>Demandes des chèques</h1>
             <p style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>Suivi des demandes de chèques</p>
           </div>
-          <button onClick={() => setShowForm(!showForm)} style={{
-            padding: '8px 16px', background: '#0099cc', color: '#fff',
-            border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: '600'
-          }}>+ Ajouter NV</button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <ImportExcel
+              onImport={handleImport}
+              columns={[
+                { key: 'titre', label: 'Titre' },
+                { key: 'montant', label: 'Montant' },
+                { key: 'date_souhaitee_signature', label: 'Date souhaitée signature' },
+                { key: 'categorie', label: 'Catégorie' },
+                { key: 'etat_signature', label: 'État signature' },
+                { key: 'etat_livraison', label: 'État livraison' },
+              ]}
+            />
+            <button onClick={() => setShowForm(!showForm)} style={{ padding: '8px 16px', background: '#0099cc', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>+ Ajouter NV</button>
+          </div>
         </div>
 
         {success && <div style={{ background: '#e8f8ef', border: '1px solid #a8d5b5', borderRadius: '6px', padding: '12px 16px', fontSize: '13px', color: '#1a7a40', marginBottom: '16px' }}>✓ Demande créée avec succès !</div>}
@@ -133,10 +154,7 @@ const DemandesCheques = () => {
               <div>
                 <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Fournisseur</label>
                 <select style={inputStyle} value={form.fournisseur}
-                  onChange={e => {
-                    if (e.target.value === '__add_fourn__') { setShowAddFourn(true) }
-                    else { setForm(p => ({ ...p, fournisseur: e.target.value })); setShowAddFourn(false) }
-                  }}>
+                  onChange={e => { if (e.target.value === '__add_fourn__') { setShowAddFourn(true) } else { setForm(p => ({ ...p, fournisseur: e.target.value })); setShowAddFourn(false) } }}>
                   <option value="">— Aucun —</option>
                   {fournisseurs.map(f => <option key={f.id} value={f.id}>{f.nom}</option>)}
                   <option value="__add_fourn__">➕ Add New</option>
@@ -171,89 +189,60 @@ const DemandesCheques = () => {
           <SortableTable
             emptyMessage="Aucune demande"
             columns={[
-              {
-                key: 'id', label: 'ID',
-                render: (_v: any, row: any) => <span style={{ color: '#aaa' }}>{row.id}</span>
-              },
-              {
-                key: 'titre', label: 'Titre',
-                render: (_v: any, row: any) => <span style={{ fontWeight: '500', color: '#2c2c2c' }}>{row.titre}</span>
-              },
-              {
-                key: 'fournisseur_nom', label: 'Fournisseur',
-                render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.fournisseur_nom}</span>
-              },
-              {
-                key: 'montant_fmt', label: 'Montant',
-                render: (_v: any, row: any) => <span style={{ fontWeight: '600', color: '#1a3a6b' }}>{row.montant_fmt}</span>
-              },
+              { key: 'id', label: 'ID', render: (_v: any, row: any) => <span style={{ color: '#aaa' }}>{row.id}</span> },
+              { key: 'titre', label: 'Titre', render: (_v: any, row: any) => <span style={{ fontWeight: '500', color: '#2c2c2c' }}>{row.titre}</span> },
+              { key: 'fournisseur_nom', label: 'Fournisseur', render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.fournisseur_nom}</span> },
+              { key: 'montant_fmt', label: 'Montant', render: (_v: any, row: any) => <span style={{ fontWeight: '600', color: '#1a3a6b' }}>{row.montant_fmt}</span> },
               {
                 key: 'date_signature_fmt', label: 'Date souhaitée signature', sortable: false,
-                render: (_v: any, row: any) => (
-                  editingDate === row.id ? (
-                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                      <input type="date" value={dateInput} onChange={e => setDateInput(e.target.value)} style={{ ...inputStyle, width: '140px', padding: '4px 8px' }} />
-                      <button onClick={async () => { await updateField(row.id, { date_souhaitee_signature: dateInput }); setEditingDate(null) }} style={{ padding: '4px 8px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✓</button>
-                      <button onClick={() => setEditingDate(null)} style={{ padding: '4px 8px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✕</button>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ color: '#555' }}>{row.date_signature_fmt}</span>
-                      <button onClick={() => { setEditingDate(row.id); setDateInput(row.date_souhaitee_signature || '') }} style={{ padding: '2px 6px', background: '#e8f4fb', color: '#0099cc', border: '1px solid #b3d9f0', borderRadius: '3px', fontSize: '10px', cursor: 'pointer' }}>✏️</button>
-                    </div>
-                  )
+                render: (_v: any, row: any) => editingDate === row.id ? (
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <input type="date" value={dateInput} onChange={e => setDateInput(e.target.value)} style={{ ...inputStyle, width: '140px', padding: '4px 8px' }} />
+                    <button onClick={async () => { await updateField(row.id, { date_souhaitee_signature: dateInput }); setEditingDate(null) }} style={{ padding: '4px 8px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✓</button>
+                    <button onClick={() => setEditingDate(null)} style={{ padding: '4px 8px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✕</button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ color: '#555' }}>{row.date_signature_fmt}</span>
+                    <button onClick={() => { setEditingDate(row.id); setDateInput(row.date_souhaitee_signature || '') }} style={{ padding: '2px 6px', background: '#e8f4fb', color: '#0099cc', border: '1px solid #b3d9f0', borderRadius: '3px', fontSize: '10px', cursor: 'pointer' }}>✏️</button>
+                  </div>
                 )
               },
-              {
-                key: 'categorie', label: 'Catégorie',
-                render: (_v: any, row: any) => <span style={{ background: '#e8f4fb', color: '#0099cc', padding: '3px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>{row.categorie}</span>
-              },
-              {
-                key: 'etat_signature_label', label: 'État signature',
-                render: (_v: any, row: any) => (
-                  <select value={row.etat_signature} onChange={e => updateField(row.id, { etat_signature: e.target.value })}
-                    style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', border: '1px solid #e0e0e0', cursor: 'pointer', background: row.etat_signature === 'signe' ? '#e8f8ef' : '#fff3e0', color: row.etat_signature === 'signe' ? '#1a7a40' : '#e65100' }}>
-                    <option value="en_cours">En cours</option>
-                    <option value="signe">Signé</option>
-                  </select>
-                )
-              },
-              {
-                key: 'etat_livraison_label', label: 'État livraison',
-                render: (_v: any, row: any) => (
-                  <select value={row.etat_livraison} onChange={e => updateField(row.id, { etat_livraison: e.target.value })}
-                    style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', border: '1px solid #e0e0e0', cursor: 'pointer', background: row.etat_livraison === 'livre' ? '#e8f8ef' : '#fff3e0', color: row.etat_livraison === 'livre' ? '#1a7a40' : '#e65100' }}>
-                    <option value="en_cours">En cours</option>
-                    <option value="livre">Livré</option>
-                  </select>
-                )
-              },
+              { key: 'categorie', label: 'Catégorie', render: (_v: any, row: any) => <span style={{ background: '#e8f4fb', color: '#0099cc', padding: '3px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>{row.categorie}</span> },
+              { key: 'etat_signature_label', label: 'État signature', render: (_v: any, row: any) => (
+                <select value={row.etat_signature} onChange={e => updateField(row.id, { etat_signature: e.target.value })}
+                  style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', border: '1px solid #e0e0e0', cursor: 'pointer', background: row.etat_signature === 'signe' ? '#e8f8ef' : '#fff3e0', color: row.etat_signature === 'signe' ? '#1a7a40' : '#e65100' }}>
+                  <option value="en_cours">En cours</option>
+                  <option value="signe">Signé</option>
+                </select>
+              )},
+              { key: 'etat_livraison_label', label: 'État livraison', render: (_v: any, row: any) => (
+                <select value={row.etat_livraison} onChange={e => updateField(row.id, { etat_livraison: e.target.value })}
+                  style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', border: '1px solid #e0e0e0', cursor: 'pointer', background: row.etat_livraison === 'livre' ? '#e8f8ef' : '#fff3e0', color: row.etat_livraison === 'livre' ? '#1a7a40' : '#e65100' }}>
+                  <option value="en_cours">En cours</option>
+                  <option value="livre">Livré</option>
+                </select>
+              )},
               {
                 key: 'date_echeance_fmt', label: 'Date échéance', sortable: false,
-                render: (_v: any, row: any) => (
-                  editingEcheance === row.id ? (
-                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                      <input type="date" value={echeanceInput} onChange={e => setEcheanceInput(e.target.value)} style={{ ...inputStyle, width: '140px', padding: '4px 8px' }} />
-                      <button onClick={async () => { await updateField(row.id, { date_echeance: echeanceInput }); setEditingEcheance(null) }} style={{ padding: '4px 8px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✓</button>
-                      <button onClick={() => setEditingEcheance(null)} style={{ padding: '4px 8px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✕</button>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ color: '#555' }}>{row.date_echeance_fmt}</span>
-                      <button onClick={() => { setEditingEcheance(row.id); setEcheanceInput(row.date_echeance || '') }} style={{ padding: '2px 6px', background: '#e8f4fb', color: '#0099cc', border: '1px solid #b3d9f0', borderRadius: '3px', fontSize: '10px', cursor: 'pointer' }}>✏️</button>
-                    </div>
-                  )
+                render: (_v: any, row: any) => editingEcheance === row.id ? (
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <input type="date" value={echeanceInput} onChange={e => setEcheanceInput(e.target.value)} style={{ ...inputStyle, width: '140px', padding: '4px 8px' }} />
+                    <button onClick={async () => { await updateField(row.id, { date_echeance: echeanceInput }); setEditingEcheance(null) }} style={{ padding: '4px 8px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✓</button>
+                    <button onClick={() => setEditingEcheance(null)} style={{ padding: '4px 8px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✕</button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ color: '#555' }}>{row.date_echeance_fmt}</span>
+                    <button onClick={() => { setEditingEcheance(row.id); setEcheanceInput(row.date_echeance || '') }} style={{ padding: '2px 6px', background: '#e8f4fb', color: '#0099cc', border: '1px solid #b3d9f0', borderRadius: '3px', fontSize: '10px', cursor: 'pointer' }}>✏️</button>
+                  </div>
                 )
               },
               {
                 key: 'type_paiement', label: 'Type de paiement', sortable: false,
                 render: (_v: any, row: any) => (
                   <div>
-                    <select value={row.type_paiement || ''}
-                      onChange={e => {
-                        if (e.target.value === '__add_type__') { setShowAddType(true) }
-                        else { updateField(row.id, { type_paiement: e.target.value }) }
-                      }}
+                    <select value={row.type_paiement || ''} onChange={e => { if (e.target.value === '__add_type__') { setShowAddType(true) } else { updateField(row.id, { type_paiement: e.target.value }) } }}
                       style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', border: '1px solid #e0e0e0', cursor: 'pointer', minWidth: '120px' }}>
                       <option value="">— Choisir —</option>
                       {typesPaiement.map(t => <option key={t} value={t}>{t}</option>)}
@@ -269,12 +258,7 @@ const DemandesCheques = () => {
                   </div>
                 )
               },
-              {
-                key: 'actions', label: 'Supprimer', sortable: false,
-                render: (_v: any, row: any) => (
-                  <button onClick={() => handleDelete(row.id)} style={{ padding: '4px 10px', background: '#fdeaea', color: '#c0392b', border: '1px solid #f5c6c6', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>🗑</button>
-                )
-              },
+              { key: 'actions', label: 'Supprimer', sortable: false, render: (_v: any, row: any) => <button onClick={() => handleDelete(row.id)} style={{ padding: '4px 10px', background: '#fdeaea', color: '#c0392b', border: '1px solid #f5c6c6', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>🗑</button> },
             ]}
             data={tableData}
           />

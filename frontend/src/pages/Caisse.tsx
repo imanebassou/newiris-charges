@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import Layout from '../components/Layout'
 import api from '../api/axios'
 import SortableTable from '../components/SortableTable'
+import ImportExcel from '../components/ImportExcel'
 
 const CATEGORIES = [
   { value: 'charge_variable', label: 'Charge Variable' },
@@ -138,6 +139,29 @@ const Caisse = () => {
     } catch { setError('Erreur lors de l\'ajout.') }
   }
 
+  const handleImport = async (rows: any[]) => {
+    for (const row of rows) {
+      try {
+        const fd = new FormData()
+        fd.append('type', row.type === 'Entrée' || row.type === 'entree' ? 'entree' : 'sortie')
+        fd.append('titre', row.titre || '')
+        fd.append('categorie', row.categorie || 'autre')
+        fd.append('montant', String(parseFloat(String(row.montant).replace(',', '.'))))
+        fd.append('date', row.date || '')
+        fd.append('description', row.description || '')
+        fd.append('personne', row.personne || '')
+        fd.append('statut', row.statut === 'Traitée' || row.statut === 'traitee' ? 'traitee' : 'en_cours')
+        if (activeTab === 'principale') {
+          fd.append('is_caisse_principale', 'true')
+        } else {
+          fd.append('caisse', String(activeTab))
+        }
+        await api.post('/caisse/actions/', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      } catch (err) { console.error(err) }
+    }
+    fetchAll()
+  }
+
   const handleAddPerson = () => {
     if (newPerson.trim()) {
       setUsers([...users, { id: `new_${newPerson.trim()}`, username: newPerson.trim() }])
@@ -200,10 +224,24 @@ const Caisse = () => {
             <h1 style={{ fontSize: '18px', fontWeight: '700', color: '#1a3a6b' }}>Gestion de Caisse</h1>
             <p style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>Suivi des soldes et transactions</p>
           </div>
-          <button onClick={() => setShowAddAction(!showAddAction)} style={{ padding: '8px 16px', background: '#0099cc', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>+ Ajouter NV</button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <ImportExcel
+              onImport={handleImport}
+              columns={[
+                { key: 'type', label: 'Type' },
+                { key: 'titre', label: 'Titre' },
+                { key: 'categorie', label: 'Catégorie' },
+                { key: 'montant', label: 'Montant' },
+                { key: 'date', label: 'Date' },
+                { key: 'personne', label: 'Personne' },
+                { key: 'description', label: 'Description' },
+                { key: 'statut', label: 'Statut' },
+              ]}
+            />
+            <button onClick={() => setShowAddAction(!showAddAction)} style={{ padding: '8px 16px', background: '#0099cc', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>+ Ajouter NV</button>
+          </div>
         </div>
 
-        {/* TABS */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
           <button onClick={() => setActiveTab('principale')} style={{ padding: '7px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '12px', background: activeTab === 'principale' ? '#1a3a6b' : '#e8edf5', color: activeTab === 'principale' ? '#fff' : '#1a3a6b', fontWeight: activeTab === 'principale' ? 700 : 400 }}>Solde Caisse</button>
           {caisses.map(c => (
@@ -217,20 +255,13 @@ const Caisse = () => {
 
         {showAddCaisse && (
           <div style={{ background: '#fff', borderRadius: '8px', padding: '16px', border: '1px solid #e8eaed', marginBottom: '16px', display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-            <div>
-              <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Nom de la caisse</label>
-              <input style={{ ...inputStyle, width: '180px' }} value={newCaisse.nom} onChange={e => setNewCaisse(p => ({ ...p, nom: e.target.value }))} placeholder="Ex: Caisse Ahmed" />
-            </div>
-            <div>
-              <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Solde initial (DH)</label>
-              <input style={{ ...inputStyle, width: '140px' }} type="number" value={newCaisse.solde_initial} onChange={e => setNewCaisse(p => ({ ...p, solde_initial: e.target.value }))} placeholder="0.00" />
-            </div>
+            <div><label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Nom de la caisse</label><input style={{ ...inputStyle, width: '180px' }} value={newCaisse.nom} onChange={e => setNewCaisse(p => ({ ...p, nom: e.target.value }))} placeholder="Ex: Caisse Ahmed" /></div>
+            <div><label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Solde initial (DH)</label><input style={{ ...inputStyle, width: '140px' }} type="number" value={newCaisse.solde_initial} onChange={e => setNewCaisse(p => ({ ...p, solde_initial: e.target.value }))} placeholder="0.00" /></div>
             <button onClick={addCaisse} style={{ padding: '8px 16px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Créer</button>
             <button onClick={() => setShowAddCaisse(false)} style={{ padding: '8px 16px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Annuler</button>
           </div>
         )}
 
-        {/* SOLDE CARD */}
         {activeTab === 'principale' ? (
           <div style={{ background: '#fff', borderRadius: '8px', padding: '16px', border: '1px solid #e8eaed', borderTop: '3px solid #1a3a6b', marginBottom: '20px', display: 'inline-block', minWidth: '220px' }}>
             <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Solde Caisse</div>
@@ -273,49 +304,16 @@ const Caisse = () => {
           <div style={{ background: '#fff', borderRadius: '8px', padding: '24px', border: '1px solid #e8eaed', marginBottom: '20px' }}>
             <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#1a3a6b', marginBottom: '16px' }}>Nouvelle transaction</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <div>
-                <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Type *</label>
-                <select style={inputStyle} value={newAction.type} onChange={e => setNewAction(p => ({ ...p, type: e.target.value }))}>
-                  <option value="entree">Entrée</option>
-                  <option value="sortie">Sortie</option>
-                </select>
-              </div>
-              <div>
-                <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Titre *</label>
-                <input style={inputStyle} value={newAction.titre} onChange={e => setNewAction(p => ({ ...p, titre: e.target.value }))} placeholder="Ex: Règlement fournisseur" />
-              </div>
-              <div>
-                <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Service</label>
-                <select style={inputStyle} value={newAction.service} onChange={e => setNewAction(p => ({ ...p, service: e.target.value }))}>
-                  <option value="">— Aucun —</option>
-                  {services.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Catégorie</label>
-                <select style={inputStyle} value={newAction.categorie} onChange={e => setNewAction(p => ({ ...p, categorie: e.target.value }))}>
-                  {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Montant (DH) *</label>
-                <input style={inputStyle} type="number" value={newAction.montant} onChange={e => setNewAction(p => ({ ...p, montant: e.target.value }))} placeholder="0.00" />
-              </div>
-              <div>
-                <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Date *</label>
-                <input style={inputStyle} type="date" value={newAction.date} onChange={e => setNewAction(p => ({ ...p, date: e.target.value }))} />
-              </div>
-              <div>
-                <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Description</label>
-                <input style={inputStyle} value={newAction.description} onChange={e => setNewAction(p => ({ ...p, description: e.target.value }))} placeholder="Description optionnelle" />
-              </div>
+              <div><label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Type *</label><select style={inputStyle} value={newAction.type} onChange={e => setNewAction(p => ({ ...p, type: e.target.value }))}><option value="entree">Entrée</option><option value="sortie">Sortie</option></select></div>
+              <div><label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Titre *</label><input style={inputStyle} value={newAction.titre} onChange={e => setNewAction(p => ({ ...p, titre: e.target.value }))} placeholder="Ex: Règlement fournisseur" /></div>
+              <div><label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Service</label><select style={inputStyle} value={newAction.service} onChange={e => setNewAction(p => ({ ...p, service: e.target.value }))}><option value="">— Aucun —</option>{services.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}</select></div>
+              <div><label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Catégorie</label><select style={inputStyle} value={newAction.categorie} onChange={e => setNewAction(p => ({ ...p, categorie: e.target.value }))}>{CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</select></div>
+              <div><label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Montant (DH) *</label><input style={inputStyle} type="number" value={newAction.montant} onChange={e => setNewAction(p => ({ ...p, montant: e.target.value }))} placeholder="0.00" /></div>
+              <div><label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Date *</label><input style={inputStyle} type="date" value={newAction.date} onChange={e => setNewAction(p => ({ ...p, date: e.target.value }))} /></div>
+              <div><label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Description</label><input style={inputStyle} value={newAction.description} onChange={e => setNewAction(p => ({ ...p, description: e.target.value }))} placeholder="Description optionnelle" /></div>
               <div>
                 <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Personne</label>
-                <select style={inputStyle} value={newAction.personne}
-                  onChange={e => {
-                    if (e.target.value === '__add_person__') { setShowAddPerson(true) }
-                    else { setNewAction(p => ({ ...p, personne: e.target.value })); setShowAddPerson(false) }
-                  }}>
+                <select style={inputStyle} value={newAction.personne} onChange={e => { if (e.target.value === '__add_person__') { setShowAddPerson(true) } else { setNewAction(p => ({ ...p, personne: e.target.value })); setShowAddPerson(false) } }}>
                   <option value="">Sélectionner une personne...</option>
                   {users.map((u: any) => <option key={u.id} value={u.username}>{u.username}</option>)}
                   <option value="__add_person__">➕ Add New</option>
@@ -338,9 +336,7 @@ const Caisse = () => {
                   </div>
                   <input type="file" accept="image/*" ref={fileRef} onChange={e => setNewAction(p => ({ ...p, photo: e.target.files?.[0] || null }))} style={{ display: 'none' }} />
                 </label>
-                {newAction.photo && (
-                  <button type="button" onClick={() => { setNewAction(p => ({ ...p, photo: null })); if (fileRef.current) fileRef.current.value = '' }} style={{ marginTop: '6px', padding: '3px 10px', background: '#fdeaea', color: '#c0392b', border: '1px solid #f5c6c6', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>Supprimer la photo</button>
-                )}
+                {newAction.photo && <button type="button" onClick={() => { setNewAction(p => ({ ...p, photo: null })); if (fileRef.current) fileRef.current.value = '' }} style={{ marginTop: '6px', padding: '3px 10px', background: '#fdeaea', color: '#c0392b', border: '1px solid #f5c6c6', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>Supprimer la photo</button>}
               </div>
             </div>
             <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
@@ -356,76 +352,28 @@ const Caisse = () => {
           <SortableTable
             emptyMessage="Aucune transaction"
             columns={[
-              {
-                key: 'id', label: '#',
-                render: (_v: any, row: any) => <span style={{ color: '#aaa' }}>{row.id}</span>
-              },
-              {
-                key: 'type_label', label: 'Type',
-                render: (_v: any, row: any) => (
-                  <span style={{ background: row.type === 'entree' ? '#e8f8ef' : '#fdeaea', color: row.type === 'entree' ? '#1a7a40' : '#e84c3d', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
-                    {row.type === 'entree' ? '↑ Entrée' : '↓ Sortie'}
-                  </span>
-                )
-              },
-              {
-                key: 'titre', label: 'Titre',
-                render: (_v: any, row: any) => <span style={{ fontWeight: '500', color: '#2c2c2c' }}>{row.titre}</span>
-              },
-              {
-                key: 'service_nom', label: 'Service',
-                render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.service_nom}</span>
-              },
-              {
-                key: 'categorie_label', label: 'Catégorie',
-                render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.categorie_label}</span>
-              },
-              {
-                key: 'montant_fmt', label: 'Montant',
-                render: (_v: any, row: any) => (
-                  <span style={{ fontWeight: '600', color: row.type === 'entree' ? '#1a7a40' : '#e84c3d' }}>{row.montant_fmt}</span>
-                )
-              },
-              {
-                key: 'date', label: 'Date',
-                render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.date}</span>
-              },
-              {
-                key: 'personne', label: 'Personne',
-                render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.personne}</span>
-              },
-              {
-                key: 'photo_url', label: 'Photo', sortable: false,
-                render: (_v: any, row: any) => row.photo_url ? (
-                  <div onClick={() => setSelectedPhoto(row.photo_url)} style={{ cursor: 'pointer', display: 'inline-block' }}>
-                    <img src={row.photo_url} alt="justificatif" style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '6px', border: '2px solid #e0e0e0' }}
-                      onMouseOver={e => (e.currentTarget.style.borderColor = '#0099cc')}
-                      onMouseOut={e => (e.currentTarget.style.borderColor = '#e0e0e0')} />
-                    <div style={{ fontSize: '10px', color: '#0099cc', marginTop: '2px', textAlign: 'center' }}>Voir</div>
-                  </div>
-                ) : <span style={{ fontSize: '11px', color: '#aaa', background: '#f8f9fa', padding: '4px 8px', borderRadius: '4px', border: '1px solid #e8eaed' }}>Aucune</span>
-              },
-              {
-                key: 'statut_label', label: 'Statut',
-                render: (_v: any, row: any) => (
-                  <select value={row.statut} onChange={e => updateStatut(row.id, e.target.value, activeTab === 'principale' ? undefined : activeTab as number)}
-                    style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', border: '1px solid #e0e0e0', cursor: 'pointer', background: row.statut === 'traitee' ? '#e8f8ef' : '#fff3e0', color: row.statut === 'traitee' ? '#1a7a40' : '#e65100' }}>
-                    <option value="en_cours">En cours</option>
-                    <option value="traitee">Traitée</option>
-                  </select>
-                )
-              },
-              {
-                key: 'description', label: 'Description',
-                render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.description}</span>
-              },
-              {
-                key: 'actions', label: 'Supprimer', sortable: false,
-                render: (_v: any, row: any) => (
-                  <button onClick={() => deleteAction(row.id, activeTab === 'principale' ? undefined : activeTab as number)}
-                    style={{ background: '#fdeaea', color: '#e84c3d', border: '1px solid #f5c6c6', borderRadius: '4px', padding: '3px 8px', cursor: 'pointer', fontSize: '11px' }}>🗑</button>
-                )
-              },
+              { key: 'id', label: '#', render: (_v: any, row: any) => <span style={{ color: '#aaa' }}>{row.id}</span> },
+              { key: 'type_label', label: 'Type', render: (_v: any, row: any) => <span style={{ background: row.type === 'entree' ? '#e8f8ef' : '#fdeaea', color: row.type === 'entree' ? '#1a7a40' : '#e84c3d', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>{row.type === 'entree' ? '↑ Entrée' : '↓ Sortie'}</span> },
+              { key: 'titre', label: 'Titre', render: (_v: any, row: any) => <span style={{ fontWeight: '500', color: '#2c2c2c' }}>{row.titre}</span> },
+              { key: 'service_nom', label: 'Service', render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.service_nom}</span> },
+              { key: 'categorie_label', label: 'Catégorie', render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.categorie_label}</span> },
+              { key: 'montant_fmt', label: 'Montant', render: (_v: any, row: any) => <span style={{ fontWeight: '600', color: row.type === 'entree' ? '#1a7a40' : '#e84c3d' }}>{row.montant_fmt}</span> },
+              { key: 'date', label: 'Date', render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.date}</span> },
+              { key: 'personne', label: 'Personne', render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.personne}</span> },
+              { key: 'photo_url', label: 'Photo', sortable: false, render: (_v: any, row: any) => row.photo_url ? (
+                <div onClick={() => setSelectedPhoto(row.photo_url)} style={{ cursor: 'pointer', display: 'inline-block' }}>
+                  <img src={row.photo_url} alt="justificatif" style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '6px', border: '2px solid #e0e0e0' }} onMouseOver={e => (e.currentTarget.style.borderColor = '#0099cc')} onMouseOut={e => (e.currentTarget.style.borderColor = '#e0e0e0')} />
+                  <div style={{ fontSize: '10px', color: '#0099cc', marginTop: '2px', textAlign: 'center' }}>Voir</div>
+                </div>
+              ) : <span style={{ fontSize: '11px', color: '#aaa', background: '#f8f9fa', padding: '4px 8px', borderRadius: '4px', border: '1px solid #e8eaed' }}>Aucune</span> },
+              { key: 'statut_label', label: 'Statut', render: (_v: any, row: any) => (
+                <select value={row.statut} onChange={e => updateStatut(row.id, e.target.value, activeTab === 'principale' ? undefined : activeTab as number)} style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', border: '1px solid #e0e0e0', cursor: 'pointer', background: row.statut === 'traitee' ? '#e8f8ef' : '#fff3e0', color: row.statut === 'traitee' ? '#1a7a40' : '#e65100' }}>
+                  <option value="en_cours">En cours</option>
+                  <option value="traitee">Traitée</option>
+                </select>
+              )},
+              { key: 'description', label: 'Description', render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.description}</span> },
+              { key: 'actions', label: 'Supprimer', sortable: false, render: (_v: any, row: any) => <button onClick={() => deleteAction(row.id, activeTab === 'principale' ? undefined : activeTab as number)} style={{ background: '#fdeaea', color: '#e84c3d', border: '1px solid #f5c6c6', borderRadius: '4px', padding: '3px 8px', cursor: 'pointer', fontSize: '11px' }}>🗑</button> },
             ]}
             data={tableData}
           />
