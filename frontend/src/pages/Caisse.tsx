@@ -140,27 +140,29 @@ const Caisse = () => {
   }
 
   const handleImport = async (rows: any[]) => {
-    for (const row of rows) {
-      try {
-        const fd = new FormData()
-        fd.append('type', row.type === 'Entrée' || row.type === 'entree' ? 'entree' : 'sortie')
-        fd.append('titre', row.titre || '')
-        fd.append('categorie', row.categorie || 'autre')
-        fd.append('montant', String(parseFloat(String(row.montant).replace(',', '.'))))
-        fd.append('date', row.date || '')
-        fd.append('description', row.description || '')
-        fd.append('personne', row.personne || '')
-        fd.append('statut', row.statut === 'Traitée' || row.statut === 'traitee' ? 'traitee' : 'en_cours')
-        if (activeTab === 'principale') {
-          fd.append('is_caisse_principale', 'true')
-        } else {
-          fd.append('caisse', String(activeTab))
-        }
-        await api.post('/caisse/actions/', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-      } catch (err) { console.error(err) }
-    }
-    fetchAll()
+  const today = new Date().toISOString().split('T')[0]
+  for (const row of rows) {
+    try {
+      const fd = new FormData()
+      fd.append('type', row.type === 'Entrée' || row.type === 'entree' ? 'entree' : 'sortie')
+      fd.append('titre', row.titre || 'Sans titre')
+      fd.append('categorie', row.categorie || 'autre')
+      fd.append('montant', String(parseFloat(String(row.montant || '0').replace(',', '.')) || 0))
+      fd.append('date', row.date || today)
+      fd.append('description', row.description || '')
+      fd.append('personne', row.personne || '')
+      fd.append('statut', row.statut === 'Traitée' || row.statut === 'traitee' ? 'traitee' : 'en_cours')
+      if (activeTab === 'principale') {
+        fd.append('is_caisse_principale', 'true')
+      } else {
+        fd.append('caisse', String(activeTab))
+      }
+      await api.post('/caisse/actions/', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+    } catch (err) { console.error(err) }
   }
+  setLoading(true)
+  await fetchAll()
+}
 
   const handleAddPerson = () => {
     if (newPerson.trim()) {

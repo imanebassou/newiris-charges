@@ -24,6 +24,8 @@ const Banque = () => {
     description: '', montant: '', categorie: '', statut: 'en_cours'
   })
 
+  const today = new Date().toISOString().split('T')[0]
+
   const fetchData = async () => {
     try {
       const actionsRes = await api.get('/banque/actions/')
@@ -47,14 +49,14 @@ const Banque = () => {
       })
       setShowForm(false)
       setForm({ type: 'entree', date: '', titre: '', description: '', montant: '', categorie: '', statut: 'en_cours' })
-      fetchData()
+      await fetchData()
     } catch (err) { console.error(err) }
   }
 
   const handleDelete = async (id: number) => {
     try {
       await api.delete(`/banque/actions/${id}/`)
-      fetchData()
+      await fetchData()
     } catch (err) { console.error(err) }
   }
 
@@ -71,16 +73,17 @@ const Banque = () => {
       try {
         await api.post('/banque/actions/', {
           type: row.type === 'Entrée' || row.type === 'entree' ? 'entree' : 'sortie',
-          date: row.date,
-          titre: row.titre || '',
+          date: row.date || today,
+          titre: row.titre || 'Sans titre',
           description: row.description || '',
-          montant: parseFloat(String(row.montant).replace(',', '.')),
+          montant: parseFloat(String(row.montant || '0').replace(',', '.')) || 0,
           categorie: row.categorie || '',
           statut: row.statut === 'Traitée' || row.statut === 'traitee' ? 'traitee' : 'en_cours',
         })
       } catch (err) { console.error(err) }
     }
-    fetchData()
+    setLoading(true)
+    await fetchData()
   }
 
   const inputStyle = {
@@ -215,7 +218,7 @@ const Banque = () => {
               { key: 'montant', label: 'Montant', render: (_v: any, row: any) => <span style={{ fontWeight: '600', color: row.statut === 'en_cours' ? '#aaa' : row.type === 'entree' ? '#1a7a40' : '#c0392b' }}>{row.type === 'entree' ? '+' : '-'}{parseFloat(row.montant).toLocaleString('fr-FR')} DH{row.statut === 'en_cours' && <span style={{ fontSize: '9px', color: '#aaa', marginLeft: '4px' }}>(en cours)</span>}</span> },
               { key: 'categorie', label: 'Catégorie', render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.categorie || '—'}</span> },
               { key: 'statut', label: 'Statut', render: (_v: any, row: any) => (
-                <select value={row.statut} onChange={async e => { try { await api.patch(`/banque/actions/${row.id}/`, { statut: e.target.value }); fetchData() } catch (err) { console.error(err) } }}
+                <select value={row.statut} onChange={async e => { try { await api.patch(`/banque/actions/${row.id}/`, { statut: e.target.value }); await fetchData() } catch (err) { console.error(err) } }}
                   style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', border: '1px solid #e0e0e0', cursor: 'pointer', background: row.statut === 'traitee' ? '#e8f8ef' : '#fff3e0', color: row.statut === 'traitee' ? '#1a7a40' : '#e65100' }}>
                   <option value="en_cours">En cours</option>
                   <option value="traitee">Traitée</option>

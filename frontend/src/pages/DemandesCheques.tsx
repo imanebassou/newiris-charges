@@ -25,6 +25,8 @@ const DemandesCheques = () => {
   const [echeanceInput, setEcheanceInput] = useState('')
   const [editingDate, setEditingDate] = useState<number | null>(null)
   const [dateInput, setDateInput] = useState('')
+  const [editingMontant, setEditingMontant] = useState<number | null>(null)
+  const [montantInput, setMontantInput] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
 
@@ -38,7 +40,6 @@ const DemandesCheques = () => {
       ])
       setDemandes(demandesRes.data)
       setFournisseurs(fournsRes.data)
-      // Filtrer commandes avec Finance OK ET Direction OK
       const commandesValidees = commandesRes.data.filter(
         (c: any) => c.validation_finance === 'ok' && c.validation_direction === 'ok'
       )
@@ -48,6 +49,15 @@ const DemandesCheques = () => {
   }
 
   useEffect(() => { fetchData() }, [])
+
+  // ─── KPI TOTAUX DYNAMIQUES ───
+  const totalTout = demandes.reduce((sum, d) => sum + Number(d.montant), 0)
+  const totalSigne = demandes.filter(d => d.etat_signature === 'signe').reduce((sum, d) => sum + Number(d.montant), 0)
+  const totalLivre = demandes.filter(d => d.etat_livraison === 'livre').reduce((sum, d) => sum + Number(d.montant), 0)
+  const totalEnCours = demandes.filter(d => d.etat_signature !== 'signe' || d.etat_livraison !== 'livre').reduce((sum, d) => sum + Number(d.montant), 0)
+  const countSigne = demandes.filter(d => d.etat_signature === 'signe').length
+  const countLivre = demandes.filter(d => d.etat_livraison === 'livre').length
+  const countEnCours = demandes.filter(d => d.etat_signature !== 'signe' || d.etat_livraison !== 'livre').length
 
   const handleSubmit = async () => {
     if (!form.titre || !form.montant || !form.date_souhaitee_signature) {
@@ -110,23 +120,24 @@ const DemandesCheques = () => {
   }
 
   const handleImport = async (rows: any[]) => {
+    const today = new Date().toISOString().split('T')[0]
     for (const row of rows) {
       try {
         await api.post('/cheques/demandes/', {
-          titre: row.titre || '',
+          titre: row.titre || 'Sans titre',
           fournisseur: null,
-          montant: parseFloat(String(row.montant).replace(',', '.')),
-          date_souhaitee_signature: row.date_souhaitee_signature || row.date || '',
+          montant: parseFloat(String(row.montant || '0').replace(',', '.')) || 0,
+          date_souhaitee_signature: row.date_souhaitee_signature || row.date || today,
           categorie: row.categorie || 'Paiement fournisseur',
           etat_signature: row.etat_signature === 'Signé' || row.etat_signature === 'signe' ? 'signe' : 'en_cours',
           etat_livraison: row.etat_livraison === 'Livré' || row.etat_livraison === 'livre' ? 'livre' : 'en_cours',
         })
       } catch (err) { console.error(err) }
     }
-    fetchData()
+    setLoading(true)
+    await fetchData()
   }
 
-  // Trouver les demandes liées à une commande
   const getDemandePourCommande = (commande: any) =>
     demandes.filter(d => d.titre === commande.titre)
 
@@ -147,6 +158,7 @@ const DemandesCheques = () => {
     <Layout>
       <div style={{ padding: '20px' }}>
 
+        {/* HEADER */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div>
             <h1 style={{ fontSize: '18px', fontWeight: '700', color: '#1a3a6b' }}>Demandes des chèques</h1>
@@ -171,6 +183,30 @@ const DemandesCheques = () => {
         {success && <div style={{ background: '#e8f8ef', border: '1px solid #a8d5b5', borderRadius: '6px', padding: '12px 16px', fontSize: '13px', color: '#1a7a40', marginBottom: '16px' }}>✓ Demande créée avec succès !</div>}
         {error && <div style={{ background: '#fdeaea', border: '1px solid #f5c6c6', borderRadius: '6px', padding: '12px 16px', fontSize: '13px', color: '#c0392b', marginBottom: '16px' }}>{error}</div>}
 
+        {/* ─── KPI TOTAUX DYNAMIQUES ─── */}
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
+          <div style={{ background: '#fff', borderRadius: '8px', padding: '14px 18px', border: '1px solid #e8eaed', borderTop: '3px solid #1a3a6b', minWidth: '160px' }}>
+            <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Total toutes demandes</div>
+            <div style={{ fontSize: '20px', fontWeight: '700', color: '#1a3a6b' }}>{totalTout.toLocaleString('fr-FR')} DH</div>
+            <div style={{ fontSize: '10px', color: '#aaa', marginTop: '2px' }}>{demandes.length} demande{demandes.length > 1 ? 's' : ''}</div>
+          </div>
+          <div style={{ background: '#fff', borderRadius: '8px', padding: '14px 18px', border: '1px solid #e8eaed', borderTop: '3px solid #1a7a40', minWidth: '160px' }}>
+            <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Total signées</div>
+            <div style={{ fontSize: '20px', fontWeight: '700', color: '#1a7a40' }}>{totalSigne.toLocaleString('fr-FR')} DH</div>
+            <div style={{ fontSize: '10px', color: '#aaa', marginTop: '2px' }}>{countSigne} demande{countSigne > 1 ? 's' : ''}</div>
+          </div>
+          <div style={{ background: '#fff', borderRadius: '8px', padding: '14px 18px', border: '1px solid #e8eaed', borderTop: '3px solid #0099cc', minWidth: '160px' }}>
+            <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Total livrées</div>
+            <div style={{ fontSize: '20px', fontWeight: '700', color: '#0099cc' }}>{totalLivre.toLocaleString('fr-FR')} DH</div>
+            <div style={{ fontSize: '10px', color: '#aaa', marginTop: '2px' }}>{countLivre} demande{countLivre > 1 ? 's' : ''}</div>
+          </div>
+          <div style={{ background: '#fff', borderRadius: '8px', padding: '14px 18px', border: '1px solid #e8eaed', borderTop: '3px solid #e65100', minWidth: '160px' }}>
+            <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Total en cours</div>
+            <div style={{ fontSize: '20px', fontWeight: '700', color: '#e65100' }}>{totalEnCours.toLocaleString('fr-FR')} DH</div>
+            <div style={{ fontSize: '10px', color: '#aaa', marginTop: '2px' }}>{countEnCours} demande{countEnCours > 1 ? 's' : ''}</div>
+          </div>
+        </div>
+
         {/* ─── COMMANDES VALIDÉES ─── */}
         {commandes.length > 0 && (
           <div style={{ marginBottom: '24px' }}>
@@ -184,38 +220,21 @@ const DemandesCheques = () => {
                 const isExpanded = expandedCommande === commande.id
                 return (
                   <div key={commande.id} style={{ border: '1px solid #e8eaed', borderRadius: '8px', overflow: 'hidden', background: '#fff' }}>
-                    {/* Header commande */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: '#f8f9fa' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <span style={{ fontSize: '15px', fontWeight: '700', color: '#1a3a6b' }}>{commande.titre}</span>
-                        {commande.montant && (
-                          <span style={{ fontSize: '13px', fontWeight: '600', color: '#0099cc' }}>
-                            {Number(commande.montant).toLocaleString('fr-FR')} DH
-                          </span>
-                        )}
-                        {commande.fournisseur_nom && commande.fournisseur_nom !== '—' && (
-                          <span style={{ fontSize: '11px', color: '#888', background: '#e8eaed', padding: '2px 8px', borderRadius: '4px' }}>
-                            {commande.fournisseur_nom}
-                          </span>
-                        )}
+                        {commande.montant && <span style={{ fontSize: '13px', fontWeight: '600', color: '#0099cc' }}>{Number(commande.montant).toLocaleString('fr-FR')} DH</span>}
+                        {commande.fournisseur_nom && commande.fournisseur_nom !== '—' && <span style={{ fontSize: '11px', color: '#888', background: '#e8eaed', padding: '2px 8px', borderRadius: '4px' }}>{commande.fournisseur_nom}</span>}
                       </div>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <button
-                          onClick={() => setExpandedCommande(isExpanded ? null : commande.id)}
-                          style={{ padding: '6px 14px', background: '#fff', color: '#1a3a6b', border: '1px solid #1a3a6b', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}
-                        >
+                        <button onClick={() => setExpandedCommande(isExpanded ? null : commande.id)} style={{ padding: '6px 14px', background: '#fff', color: '#1a3a6b', border: '1px solid #1a3a6b', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>
                           {isExpanded ? 'Masquer' : 'View details'}
                         </button>
-                        <button
-                          onClick={() => handleAddChequeFromCommande(commande)}
-                          style={{ padding: '6px 14px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}
-                        >
+                        <button onClick={() => handleAddChequeFromCommande(commande)} style={{ padding: '6px 14px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>
                           + Add new cheque
                         </button>
                       </div>
                     </div>
-
-                    {/* Détails expandus */}
                     {isExpanded && (
                       <div style={{ padding: '16px 20px', borderTop: '1px solid #e8eaed' }}>
                         {demandesLiees.length > 0 ? (
@@ -234,30 +253,12 @@ const DemandesCheques = () => {
                                   <td style={{ padding: '8px 12px', fontWeight: '500', color: '#2c2c2c' }}>{d.titre}</td>
                                   <td style={{ padding: '8px 12px', color: '#555' }}>{d.fournisseur_nom || '—'}</td>
                                   <td style={{ padding: '8px 12px', fontWeight: '600', color: '#1a3a6b' }}>{Number(d.montant).toLocaleString('fr-FR')} DH</td>
-                                  <td style={{ padding: '8px 12px' }}>
-                                    <span style={{ background: '#e8f4fb', color: '#0099cc', padding: '2px 8px', borderRadius: '4px', fontSize: '11px' }}>
-                                      Doc (pièce joint)
-                                    </span>
-                                  </td>
-                                  <td style={{ padding: '8px 12px' }}>
-                                    <span style={{ background: '#e8f4fb', color: '#0099cc', padding: '2px 8px', borderRadius: '4px', fontSize: '11px' }}>{d.categorie}</span>
-                                  </td>
+                                  <td style={{ padding: '8px 12px' }}><span style={{ background: '#e8f4fb', color: '#0099cc', padding: '2px 8px', borderRadius: '4px', fontSize: '11px' }}>Doc (pièce joint)</span></td>
+                                  <td style={{ padding: '8px 12px' }}><span style={{ background: '#e8f4fb', color: '#0099cc', padding: '2px 8px', borderRadius: '4px', fontSize: '11px' }}>{d.categorie}</span></td>
                                   <td style={{ padding: '8px 12px', color: '#555' }}>{d.date_souhaitee_signature ? new Date(d.date_souhaitee_signature).toLocaleDateString('fr-FR') : '—'}</td>
-                                  <td style={{ padding: '8px 12px' }}>
-                                    <span style={{ background: d.etat_signature === 'signe' ? '#e8f8ef' : '#fff3e0', color: d.etat_signature === 'signe' ? '#1a7a40' : '#e65100', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600' }}>
-                                      {d.etat_signature === 'signe' ? 'Signé' : 'En cours'}
-                                    </span>
-                                  </td>
-                                  <td style={{ padding: '8px 12px' }}>
-                                    <span style={{ background: '#fff3e0', color: '#e65100', padding: '2px 8px', borderRadius: '4px', fontSize: '11px' }}>
-                                      {d.etat_livraison === 'livre' ? 'Livré' : 'En cours'}
-                                    </span>
-                                  </td>
-                                  <td style={{ padding: '8px 12px' }}>
-                                    <span style={{ background: '#fff3e0', color: '#e65100', padding: '2px 8px', borderRadius: '4px', fontSize: '11px' }}>
-                                      {d.etat_livraison === 'livre' ? 'Livré' : 'En cours'}
-                                    </span>
-                                  </td>
+                                  <td style={{ padding: '8px 12px' }}><span style={{ background: d.etat_signature === 'signe' ? '#e8f8ef' : '#fff3e0', color: d.etat_signature === 'signe' ? '#1a7a40' : '#e65100', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600' }}>{d.etat_signature === 'signe' ? 'Signé' : 'En cours'}</span></td>
+                                  <td style={{ padding: '8px 12px' }}><span style={{ background: d.etat_livraison === 'livre' ? '#e8f8ef' : '#fff3e0', color: d.etat_livraison === 'livre' ? '#1a7a40' : '#e65100', padding: '2px 8px', borderRadius: '4px', fontSize: '11px' }}>{d.etat_livraison === 'livre' ? 'Livré' : 'En cours'}</span></td>
+                                  <td style={{ padding: '8px 12px' }}><span style={{ background: d.etat_livraison === 'livre' ? '#e8f8ef' : '#fff3e0', color: d.etat_livraison === 'livre' ? '#1a7a40' : '#e65100', padding: '2px 8px', borderRadius: '4px', fontSize: '11px' }}>{d.etat_livraison === 'livre' ? 'Livré' : 'En cours'}</span></td>
                                   <td style={{ padding: '8px 12px', color: '#555' }}>{d.date_echeance ? new Date(d.date_echeance).toLocaleDateString('fr-FR') : '—'}</td>
                                 </tr>
                               ))}
@@ -288,8 +289,7 @@ const DemandesCheques = () => {
               </div>
               <div>
                 <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Fournisseur</label>
-                <select style={inputStyle} value={form.fournisseur}
-                  onChange={e => { if (e.target.value === '__add_fourn__') { setShowAddFourn(true) } else { setForm(p => ({ ...p, fournisseur: e.target.value })); setShowAddFourn(false) } }}>
+                <select style={inputStyle} value={form.fournisseur} onChange={e => { if (e.target.value === '__add_fourn__') { setShowAddFourn(true) } else { setForm(p => ({ ...p, fournisseur: e.target.value })); setShowAddFourn(false) } }}>
                   <option value="">— Aucun —</option>
                   {fournisseurs.map(f => <option key={f.id} value={f.id}>{f.nom}</option>)}
                   <option value="__add_fourn__">➕ Add New</option>
@@ -318,7 +318,7 @@ const DemandesCheques = () => {
           </div>
         )}
 
-        {/* ─── TABLEAU DEMANDES ─── */}
+        {/* ─── TABLEAU ─── */}
         <div style={{ fontSize: '13px', fontWeight: '600', color: '#1a3a6b', marginBottom: '10px' }}>
           Toutes les demandes de chèques
         </div>
@@ -332,7 +332,25 @@ const DemandesCheques = () => {
               { key: 'id', label: 'ID', render: (_v: any, row: any) => <span style={{ color: '#aaa' }}>{row.id}</span> },
               { key: 'titre', label: 'Titre', render: (_v: any, row: any) => <span style={{ fontWeight: '500', color: '#2c2c2c' }}>{row.titre}</span> },
               { key: 'fournisseur_nom', label: 'Fournisseur', render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.fournisseur_nom}</span> },
-              { key: 'montant_fmt', label: 'Montant', render: (_v: any, row: any) => <span style={{ fontWeight: '600', color: '#1a3a6b' }}>{row.montant_fmt}</span> },
+              {
+                key: 'montant_fmt', label: 'Montant', sortable: false,
+                render: (_v: any, row: any) => editingMontant === row.id ? (
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <input type="number" value={montantInput} onChange={e => setMontantInput(e.target.value)}
+                      style={{ ...inputStyle, width: '100px', padding: '4px 8px' }}
+                      onKeyDown={e => { if (e.key === 'Enter') { updateField(row.id, { montant: parseFloat(montantInput) }); setEditingMontant(null) } }}
+                    />
+                    <button onClick={() => { updateField(row.id, { montant: parseFloat(montantInput) }); setEditingMontant(null) }} style={{ padding: '4px 8px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✓</button>
+                    <button onClick={() => setEditingMontant(null)} style={{ padding: '4px 8px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✕</button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontWeight: '600', color: '#1a3a6b' }}>{row.montant_fmt}</span>
+                    <button onClick={() => { setEditingMontant(row.id); setMontantInput(String(row.montant)) }}
+                      style={{ padding: '2px 6px', background: '#e8f4fb', color: '#0099cc', border: '1px solid #b3d9f0', borderRadius: '3px', fontSize: '10px', cursor: 'pointer' }}>✏️</button>
+                  </div>
+                )
+              },
               {
                 key: 'date_signature_fmt', label: 'Date souhaitée signature', sortable: false,
                 render: (_v: any, row: any) => editingDate === row.id ? (

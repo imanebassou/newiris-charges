@@ -35,6 +35,8 @@ const ChargesVariables = () => {
     personne: '', statut: 'en_cours'
   })
 
+  const today = new Date().toISOString().split('T')[0]
+
   const fetchData = async () => {
     try {
       const [chargesRes, servicesRes, usersRes] = await Promise.all([
@@ -68,16 +70,16 @@ const ChargesVariables = () => {
       setShowForm(false); setPhoto(null)
       setForm({ titre: '', service: '', categorie: '', sous_categorie: '', montant: '', date: '', personne: '', statut: 'en_cours' })
       setShowAddCat(false); setShowAddSousCat(false); setShowAddPerson(false)
-      fetchData()
+      await fetchData()
     } catch (err) { console.error(err) }
   }
 
   const handleDelete = async (id: number) => {
-    try { await api.delete(`/charges-variables/${id}/`); fetchData() } catch (err) { console.error(err) }
+    try { await api.delete(`/charges-variables/${id}/`); await fetchData() } catch (err) { console.error(err) }
   }
 
   const handleStatutChange = async (id: number, statut: string) => {
-    try { await api.patch(`/charges-variables/${id}/`, { statut }); fetchData() } catch (err) { console.error(err) }
+    try { await api.patch(`/charges-variables/${id}/`, { statut }); await fetchData() } catch (err) { console.error(err) }
   }
 
   const handleAddCat = () => {
@@ -107,22 +109,24 @@ const ChargesVariables = () => {
   }
 
   const handleImport = async (rows: any[]) => {
-    for (const row of rows) {
-      try {
-        const formData = new FormData()
-        formData.append('titre', row.titre || '')
-        formData.append('service', row.service || '')
-        formData.append('categorie', row.categorie || '')
-        formData.append('sous_categorie', row.sous_categorie || '')
-        formData.append('montant', String(parseFloat(String(row.montant).replace(',', '.'))))
-        formData.append('date', row.date || '')
-        formData.append('description', row.personne || row.description || '')
-        formData.append('statut', row.statut === 'Traitée' || row.statut === 'traitee' ? 'traitee' : 'en_cours')
-        await api.post('/charges-variables/', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-      } catch (err) { console.error(err) }
-    }
-    fetchData()
+  const today = new Date().toISOString().split('T')[0]
+  for (const row of rows) {
+    try {
+      const formData = new FormData()
+      formData.append('titre', row.titre || 'Sans titre')
+      formData.append('service', row.service || (services[0]?.id ? String(services[0].id) : ''))
+      formData.append('categorie', row.categorie || 'Véhicule')
+      formData.append('sous_categorie', row.sous_categorie || '')
+      formData.append('montant', String(parseFloat(String(row.montant || '0').replace(',', '.')) || 0))
+      formData.append('date', row.date || today)
+      formData.append('description', row.personne || row.description || '')
+      formData.append('statut', row.statut === 'Traitée' || row.statut === 'traitee' ? 'traitee' : 'en_cours')
+      await api.post('/charges-variables/', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+    } catch (err) { console.error(err) }
   }
+  setLoading(true)
+  await fetchData()
+}
 
   const inputStyle = { width: '100%', padding: '8px 12px', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '13px', outline: 'none' }
   const addNewInputStyle = { display: 'flex', gap: '6px', marginTop: '6px' }

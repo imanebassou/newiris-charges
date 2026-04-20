@@ -92,22 +92,23 @@ const Commandes = () => {
   }
 
   const handleImport = async (rows: any[]) => {
-    for (const row of rows) {
-      try {
-        await api.post('/commandes/', {
-          titre: row.titre || '',
-          fournisseur: null,
-          montant: row.montant ? parseFloat(String(row.montant).replace(',', '.')) : null,
-          echeance: row.echeance || null,
-          mode_livraison: row.mode_livraison || '',
-          type_paiement: row.type_paiement || '',
-          validation_direction: 'en_attente',
-          validation_finance: 'en_attente',
-        })
-      } catch (err) { console.error(err) }
-    }
-    fetchData()
+  for (const row of rows) {
+    try {
+      await api.post('/commandes/', {
+        titre: row.titre || 'Sans titre',
+        fournisseur: null,
+        montant: row.montant ? parseFloat(String(row.montant).replace(',', '.')) : null,
+        echeance: row.echeance || null,
+        mode_livraison: row.mode_livraison || '',
+        type_paiement: row.type_paiement || '',
+        validation_direction: 'en_attente',
+        validation_finance: 'en_attente',
+      })
+    } catch (err) { console.error(err) }
   }
+  setLoading(true)
+  await fetchData()
+}
 
   const inputStyle = { width: '100%', padding: '8px 12px', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '13px', outline: 'none' }
   const addNewStyle = { display: 'flex', gap: '6px', marginTop: '6px' }
