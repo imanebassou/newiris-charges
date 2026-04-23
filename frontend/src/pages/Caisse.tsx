@@ -44,6 +44,8 @@ const Caisse = () => {
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
+  const [editingRow, setEditingRow] = useState<number | null>(null)
+  const [editRowData, setEditRowData] = useState<any>({})
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { fetchAll() }, [])
@@ -75,15 +77,17 @@ const Caisse = () => {
   }
 
   const fetchActions = async (caisseId?: number) => {
-    if (!caisseId) {
-      const res = await api.get('/caisse/actions/?principale=true')
-      setActionsPrincipale(res.data)
-    } else {
-      const res = await api.get(`/caisse/actions/?caisse=${caisseId}`)
-      setActionsPerso(prev => ({ ...prev, [caisseId]: res.data }))
-    }
-    const soldeRes = await api.get('/caisse/solde/')
-    setSoldeCaisse(soldeRes.data)
+    try {
+      if (!caisseId) {
+        const res = await api.get('/caisse/actions/?principale=true')
+        setActionsPrincipale(res.data)
+      } else {
+        const res = await api.get(`/caisse/actions/?caisse=${caisseId}`)
+        setActionsPerso(prev => ({ ...prev, [caisseId]: res.data }))
+      }
+      const soldeRes = await api.get('/caisse/solde/')
+      setSoldeCaisse(soldeRes.data)
+    } catch (err) { console.error(err) }
   }
 
   const saveSolde = async () => {
@@ -100,12 +104,6 @@ const Caisse = () => {
     if (!newCaisse.nom) return
     await api.post('/caisse/caisses/', { nom: newCaisse.nom, solde_initial: newCaisse.solde_initial || 0 })
     setNewCaisse({ nom: '', solde_initial: '' }); setShowAddCaisse(false); fetchAll()
-  }
-
-  const deleteCaisse = async (id: number) => {
-    await api.delete(`/caisse/caisses/${id}/`)
-    if (activeTab === id) setActiveTab('principale')
-    fetchAll()
   }
 
   const addAction = async () => {
@@ -135,34 +133,35 @@ const Caisse = () => {
       setNewAction({ type: 'entree', titre: '', service: '', categorie: 'autre', montant: '', date: new Date().toISOString().split('T')[0], description: '', personne: '', photo: null })
       if (fileRef.current) fileRef.current.value = ''
       setShowAddAction(false)
-      fetchActions(activeTab === 'principale' ? undefined : activeTab as number)
+      await fetchAll()
     } catch { setError('Erreur lors de l\'ajout.') }
   }
 
   const handleImport = async (rows: any[]) => {
-  const today = new Date().toISOString().split('T')[0]
-  for (const row of rows) {
-    try {
-      const fd = new FormData()
-      fd.append('type', row.type === 'Entrée' || row.type === 'entree' ? 'entree' : 'sortie')
-      fd.append('titre', row.titre || 'Sans titre')
-      fd.append('categorie', row.categorie || 'autre')
-      fd.append('montant', String(parseFloat(String(row.montant || '0').replace(',', '.')) || 0))
-      fd.append('date', row.date || today)
-      fd.append('description', row.description || '')
-      fd.append('personne', row.personne || '')
-      fd.append('statut', row.statut === 'Traitée' || row.statut === 'traitee' ? 'traitee' : 'en_cours')
-      if (activeTab === 'principale') {
-        fd.append('is_caisse_principale', 'true')
-      } else {
-        fd.append('caisse', String(activeTab))
-      }
-      await api.post('/caisse/actions/', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-    } catch (err) { console.error(err) }
+    const today = new Date().toISOString().split('T')[0]
+    for (const row of rows) {
+      try {
+        const fd = new FormData()
+        fd.append('type', row.type === 'Entrée' || row.type === 'entree' ? 'entree' : 'sortie')
+        fd.append('titre', row.titre || 'Sans titre')
+        fd.append('categorie', row.categorie || 'autre')
+        fd.append('montant', String(parseFloat(String(row.montant || '0').replace(',', '.')) || 0))
+        fd.append('date', row.date || today)
+        fd.append('description', row.description || '')
+        fd.append('personne', row.personne || '')
+        fd.append('statut', row.statut === 'Traitée' || row.statut === 'traitee' ? 'traitee' : 'en_cours')
+        if (activeTab === 'principale') {
+          fd.append('is_caisse_principale', 'true')
+        } else {
+          fd.append('caisse', String(activeTab))
+        }
+        await api.post('/caisse/actions/', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      } catch (err) { console.error(err) }
+    }
+    setLoading(true)
+    await fetchAll()
+    setLoading(false)
   }
-  setLoading(true)
-  await fetchAll()
-}
 
   const handleAddPerson = () => {
     if (newPerson.trim()) {
@@ -174,12 +173,28 @@ const Caisse = () => {
 
   const updateStatut = async (actionId: number, statut: string, caisseId?: number) => {
     await api.patch(`/caisse/actions/${actionId}/`, { statut })
-    fetchActions(caisseId)
+    await fetchActions(caisseId)
   }
 
   const deleteAction = async (actionId: number, caisseId?: number) => {
     await api.delete(`/caisse/actions/${actionId}/`)
-    fetchActions(caisseId)
+    await fetchActions(caisseId)
+  }
+
+  const saveEditRow = async (id: number) => {
+    try {
+      await api.patch(`/caisse/actions/${id}/`, {
+        titre: editRowData.titre,
+        montant: parseFloat(editRowData.montant),
+        date: editRowData.date,
+        description: editRowData.description,
+        personne: editRowData.personne,
+        categorie: editRowData.categorie,
+        type: editRowData.type,
+      })
+      setEditingRow(null)
+      await fetchActions(activeTab === 'principale' ? undefined : activeTab as number)
+    } catch (err) { console.error(err) }
   }
 
   const currentCaisse = activeTab !== 'principale' ? caisses.find(c => c.id === activeTab) : null
@@ -195,6 +210,7 @@ const Caisse = () => {
   }
 
   const inputStyle = { width: '100%', padding: '8px 12px', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '13px', outline: 'none' }
+  const smallInput = { padding: '3px 6px', border: '1px solid #e0e0e0', borderRadius: '4px', fontSize: '11px', outline: 'none', width: '100%' }
   const addNewInputStyle = { display: 'flex', gap: '6px', marginTop: '6px' }
 
   const tableData = currentActions.map((a: any) => ({
@@ -221,6 +237,7 @@ const Caisse = () => {
           </div>
         )}
 
+        {/* HEADER */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div>
             <h1 style={{ fontSize: '18px', fontWeight: '700', color: '#1a3a6b' }}>Gestion de Caisse</h1>
@@ -244,13 +261,13 @@ const Caisse = () => {
           </div>
         </div>
 
+        {/* TABS — sans bouton supprimer sur les caisses */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
           <button onClick={() => setActiveTab('principale')} style={{ padding: '7px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '12px', background: activeTab === 'principale' ? '#1a3a6b' : '#e8edf5', color: activeTab === 'principale' ? '#fff' : '#1a3a6b', fontWeight: activeTab === 'principale' ? 700 : 400 }}>Solde Caisse</button>
           {caisses.map(c => (
-            <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <button onClick={() => setActiveTab(c.id)} style={{ padding: '7px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '12px', background: activeTab === c.id ? '#1a3a6b' : '#e8edf5', color: activeTab === c.id ? '#fff' : '#1a3a6b', fontWeight: activeTab === c.id ? 700 : 400 }}>{c.nom}</button>
-              <button onClick={() => deleteCaisse(c.id)} style={{ background: '#e84c3d', color: '#fff', border: 'none', borderRadius: '50%', width: '18px', height: '18px', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>×</button>
-            </div>
+            <button key={c.id} onClick={() => setActiveTab(c.id)} style={{ padding: '7px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '12px', background: activeTab === c.id ? '#1a3a6b' : '#e8edf5', color: activeTab === c.id ? '#fff' : '#1a3a6b', fontWeight: activeTab === c.id ? 700 : 400 }}>
+              {c.nom}
+            </button>
           ))}
           <button onClick={() => setShowAddCaisse(!showAddCaisse)} style={{ padding: '7px 14px', background: '#fff', color: '#1a3a6b', border: '1px solid #1a3a6b', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>+ Caisse</button>
         </div>
@@ -264,6 +281,7 @@ const Caisse = () => {
           </div>
         )}
 
+        {/* SOLDE */}
         {activeTab === 'principale' ? (
           <div style={{ background: '#fff', borderRadius: '8px', padding: '16px', border: '1px solid #e8eaed', borderTop: '3px solid #1a3a6b', marginBottom: '20px', display: 'inline-block', minWidth: '220px' }}>
             <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Solde Caisse</div>
@@ -276,6 +294,7 @@ const Caisse = () => {
             ) : (
               <>
                 <div style={{ fontSize: '22px', fontWeight: '700', color: '#1a3a6b' }}>{fmt(soldeCaisse?.solde_calcule)} DH</div>
+                <div style={{ fontSize: '10px', color: '#aaa', marginTop: '2px' }}>Seulement les transactions de la caisse principale</div>
                 <button onClick={() => setEditSolde(true)} style={{ marginTop: '6px', padding: '3px 10px', background: 'none', border: '1px solid #0099cc', color: '#0099cc', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>✏️ Modifier solde initial</button>
               </>
             )}
@@ -292,14 +311,14 @@ const Caisse = () => {
             ) : (
               <>
                 <div style={{ fontSize: '22px', fontWeight: '700', color: '#1a3a6b' }}>{fmt(soldePersoCalc(currentCaisse))} DH</div>
-                <div style={{ fontSize: '10px', color: '#aaa', marginTop: '2px' }}>Indépendant du solde caisse</div>
+                <div style={{ fontSize: '10px', color: '#aaa', marginTop: '2px' }}>Indépendant du solde caisse principale</div>
                 <button onClick={() => { setEditSoldePerso(currentCaisse.id); setSoldePersoInput(currentCaisse.solde_initial) }} style={{ marginTop: '6px', padding: '3px 10px', background: 'none', border: '1px solid #0099cc', color: '#0099cc', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>✏️ Modifier solde initial</button>
               </>
             )}
           </div>
         )}
 
-        {success && <div style={{ background: '#e8f8ef', border: '1px solid #a8d5b5', borderRadius: '6px', padding: '12px 16px', fontSize: '13px', color: '#1a7a40', marginBottom: '16px' }}>✓ Transaction ajoutée avec succès !</div>}
+        {success && <div style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 9999, background: '#1a7a40', color: '#fff', padding: '12px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }}>✅ Transaction ajoutée !</div>}
         {error && <div style={{ background: '#fdeaea', border: '1px solid #f5c6c6', borderRadius: '6px', padding: '12px 16px', fontSize: '13px', color: '#c0392b', marginBottom: '16px' }}>{error}</div>}
 
         {showAddAction && (
@@ -355,27 +374,110 @@ const Caisse = () => {
             emptyMessage="Aucune transaction"
             columns={[
               { key: 'id', label: '#', render: (_v: any, row: any) => <span style={{ color: '#aaa' }}>{row.id}</span> },
-              { key: 'type_label', label: 'Type', render: (_v: any, row: any) => <span style={{ background: row.type === 'entree' ? '#e8f8ef' : '#fdeaea', color: row.type === 'entree' ? '#1a7a40' : '#e84c3d', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>{row.type === 'entree' ? '↑ Entrée' : '↓ Sortie'}</span> },
-              { key: 'titre', label: 'Titre', render: (_v: any, row: any) => <span style={{ fontWeight: '500', color: '#2c2c2c' }}>{row.titre}</span> },
+              {
+                key: 'type_label', label: 'Type', render: (_v: any, row: any) =>
+                  editingRow === row.id ? (
+                    <select value={editRowData.type} onChange={e => setEditRowData((p: any) => ({ ...p, type: e.target.value }))} style={smallInput}>
+                      <option value="entree">Entrée</option>
+                      <option value="sortie">Sortie</option>
+                    </select>
+                  ) : (
+                    <span style={{ background: row.type === 'entree' ? '#e8f8ef' : '#fdeaea', color: row.type === 'entree' ? '#1a7a40' : '#e84c3d', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>{row.type === 'entree' ? '↑ Entrée' : '↓ Sortie'}</span>
+                  )
+              },
+              {
+                key: 'titre', label: 'Titre', render: (_v: any, row: any) =>
+                  editingRow === row.id ? (
+                    <input value={editRowData.titre} onChange={e => setEditRowData((p: any) => ({ ...p, titre: e.target.value }))} style={smallInput} />
+                  ) : (
+                    <span style={{ fontWeight: '500', color: '#2c2c2c' }}>{row.titre}</span>
+                  )
+              },
               { key: 'service_nom', label: 'Service', render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.service_nom}</span> },
-              { key: 'categorie_label', label: 'Catégorie', render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.categorie_label}</span> },
-              { key: 'montant_fmt', label: 'Montant', render: (_v: any, row: any) => <span style={{ fontWeight: '600', color: row.type === 'entree' ? '#1a7a40' : '#e84c3d' }}>{row.montant_fmt}</span> },
-              { key: 'date', label: 'Date', render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.date}</span> },
-              { key: 'personne', label: 'Personne', render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.personne}</span> },
-              { key: 'photo_url', label: 'Photo', sortable: false, render: (_v: any, row: any) => row.photo_url ? (
-                <div onClick={() => setSelectedPhoto(row.photo_url)} style={{ cursor: 'pointer', display: 'inline-block' }}>
-                  <img src={row.photo_url} alt="justificatif" style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '6px', border: '2px solid #e0e0e0' }} onMouseOver={e => (e.currentTarget.style.borderColor = '#0099cc')} onMouseOut={e => (e.currentTarget.style.borderColor = '#e0e0e0')} />
-                  <div style={{ fontSize: '10px', color: '#0099cc', marginTop: '2px', textAlign: 'center' }}>Voir</div>
-                </div>
-              ) : <span style={{ fontSize: '11px', color: '#aaa', background: '#f8f9fa', padding: '4px 8px', borderRadius: '4px', border: '1px solid #e8eaed' }}>Aucune</span> },
-              { key: 'statut_label', label: 'Statut', render: (_v: any, row: any) => (
-                <select value={row.statut} onChange={e => updateStatut(row.id, e.target.value, activeTab === 'principale' ? undefined : activeTab as number)} style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', border: '1px solid #e0e0e0', cursor: 'pointer', background: row.statut === 'traitee' ? '#e8f8ef' : '#fff3e0', color: row.statut === 'traitee' ? '#1a7a40' : '#e65100' }}>
-                  <option value="en_cours">En cours</option>
-                  <option value="traitee">Traitée</option>
-                </select>
-              )},
-              { key: 'description', label: 'Description', render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.description}</span> },
-              { key: 'actions', label: 'Supprimer', sortable: false, render: (_v: any, row: any) => <button onClick={() => deleteAction(row.id, activeTab === 'principale' ? undefined : activeTab as number)} style={{ background: '#fdeaea', color: '#e84c3d', border: '1px solid #f5c6c6', borderRadius: '4px', padding: '3px 8px', cursor: 'pointer', fontSize: '11px' }}>🗑</button> },
+              {
+                key: 'categorie_label', label: 'Catégorie', render: (_v: any, row: any) =>
+                  editingRow === row.id ? (
+                    <select value={editRowData.categorie} onChange={e => setEditRowData((p: any) => ({ ...p, categorie: e.target.value }))} style={smallInput}>
+                      {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                    </select>
+                  ) : (
+                    <span style={{ color: '#555' }}>{row.categorie_label}</span>
+                  )
+              },
+              {
+                key: 'montant_fmt', label: 'Montant', render: (_v: any, row: any) =>
+                  editingRow === row.id ? (
+                    <input type="number" value={editRowData.montant} onChange={e => setEditRowData((p: any) => ({ ...p, montant: e.target.value }))} style={{ ...smallInput, width: '80px' }} />
+                  ) : (
+                    <span style={{ fontWeight: '600', color: row.type === 'entree' ? '#1a7a40' : '#e84c3d' }}>{row.montant_fmt}</span>
+                  )
+              },
+              {
+                key: 'date', label: 'Date', render: (_v: any, row: any) =>
+                  editingRow === row.id ? (
+                    <input type="date" value={editRowData.date} onChange={e => setEditRowData((p: any) => ({ ...p, date: e.target.value }))} style={smallInput} />
+                  ) : (
+                    <span style={{ color: '#555' }}>{row.date}</span>
+                  )
+              },
+              {
+                key: 'personne', label: 'Personne', render: (_v: any, row: any) =>
+                  editingRow === row.id ? (
+                    <input value={editRowData.personne} onChange={e => setEditRowData((p: any) => ({ ...p, personne: e.target.value }))} style={smallInput} />
+                  ) : (
+                    <span style={{ color: '#555' }}>{row.personne}</span>
+                  )
+              },
+              {
+                key: 'description', label: 'Description', render: (_v: any, row: any) =>
+                  editingRow === row.id ? (
+                    <input value={editRowData.description} onChange={e => setEditRowData((p: any) => ({ ...p, description: e.target.value }))} style={smallInput} />
+                  ) : (
+                    <span style={{ color: '#555' }}>{row.description}</span>
+                  )
+              },
+              {
+                key: 'photo_url', label: 'Photo', sortable: false, render: (_v: any, row: any) => row.photo_url ? (
+                  <div onClick={() => setSelectedPhoto(row.photo_url)} style={{ cursor: 'pointer', display: 'inline-block' }}>
+                    <img src={row.photo_url} alt="justificatif" style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '6px', border: '2px solid #e0e0e0' }} onMouseOver={e => (e.currentTarget.style.borderColor = '#0099cc')} onMouseOut={e => (e.currentTarget.style.borderColor = '#e0e0e0')} />
+                    <div style={{ fontSize: '10px', color: '#0099cc', marginTop: '2px', textAlign: 'center' }}>Voir</div>
+                  </div>
+                ) : <span style={{ fontSize: '11px', color: '#aaa', background: '#f8f9fa', padding: '4px 8px', borderRadius: '4px', border: '1px solid #e8eaed' }}>Aucune</span>
+              },
+              {
+                key: 'statut_label', label: 'Statut', render: (_v: any, row: any) => (
+                  <select value={row.statut} onChange={e => updateStatut(row.id, e.target.value, activeTab === 'principale' ? undefined : activeTab as number)}
+                    style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', border: '1px solid #e0e0e0', cursor: 'pointer', background: row.statut === 'traitee' ? '#e8f8ef' : '#fff3e0', color: row.statut === 'traitee' ? '#1a7a40' : '#e65100' }}>
+                    <option value="en_cours">En cours</option>
+                    <option value="traitee">Traitée</option>
+                  </select>
+                )
+              },
+              {
+                key: 'actions', label: 'Actions', sortable: false, render: (_v: any, row: any) =>
+                  editingRow === row.id ? (
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button onClick={() => saveEditRow(row.id)} style={{ padding: '4px 10px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✓</button>
+                      <button onClick={() => setEditingRow(null)} style={{ padding: '4px 10px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✕</button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button onClick={() => {
+                        setEditingRow(row.id)
+                        setEditRowData({
+                          titre: row.titre,
+                          montant: row.montant,
+                          date: row.date,
+                          description: row.description === '—' ? '' : row.description,
+                          personne: row.personne === '—' ? '' : row.personne,
+                          categorie: row.categorie,
+                          type: row.type,
+                        })
+                      }} style={{ padding: '4px 10px', background: '#e8f4fb', color: '#0099cc', border: '1px solid #b3d9f0', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✏️</button>
+                      <button onClick={() => deleteAction(row.id, activeTab === 'principale' ? undefined : activeTab as number)} style={{ background: '#fdeaea', color: '#e84c3d', border: '1px solid #f5c6c6', borderRadius: '4px', padding: '4px 10px', cursor: 'pointer', fontSize: '11px' }}>🗑</button>
+                    </div>
+                  )
+              },
             ]}
             data={tableData}
           />

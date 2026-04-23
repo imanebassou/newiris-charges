@@ -115,8 +115,8 @@ const App = () => {
         </PrivateRoute>
       } />
       
-      <Route path="/commandes" element={
-  <PrivateRoute allowedRoles={['admin']}>
+    <Route path="/commandes" element={
+  <PrivateRoute allowedRoles={['admin', 'achat']}>
     <Commandes />
   </PrivateRoute>
 } />

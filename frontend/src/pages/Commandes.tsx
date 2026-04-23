@@ -10,7 +10,6 @@ const CHOIX = [
   { value: 'nok', label: 'NOK' },
 ]
 
-const MODES_LIVRAISON = ['Livraison directe', 'Retrait sur place', 'Transporteur', 'Express', 'Autres']
 const TYPES_PAIEMENT = ['Chèque', 'Virement', 'Espèces', 'Carte bancaire', 'Traite', 'Autres']
 
 const choixStyle = (val: string) => {
@@ -23,14 +22,10 @@ const Commandes = () => {
   document.title = 'Gestion de commandes — Newiris'
 
   const [commandes, setCommandes] = useState<any[]>([])
-  const [fournisseurs, setFournisseurs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [modesLivraison, setModesLivraison] = useState<string[]>(MODES_LIVRAISON)
   const [typesPaiement, setTypesPaiement] = useState<string[]>(TYPES_PAIEMENT)
-  const [showAddMode, setShowAddMode] = useState(false)
   const [showAddType, setShowAddType] = useState(false)
-  const [newMode, setNewMode] = useState('')
   const [newType, setNewType] = useState('')
   const [form, setForm] = useState({
     titre: '', fournisseur: '', montant: '',
@@ -40,12 +35,8 @@ const Commandes = () => {
 
   const fetchData = async () => {
     try {
-      const [cmdRes, fournRes] = await Promise.all([
-        api.get('/commandes/'),
-        api.get('/fournisseurs/'),
-      ])
+      const cmdRes = await api.get('/commandes/')
       setCommandes(cmdRes.data)
-      setFournisseurs(fournRes.data)
     } catch (err) { console.error(err) }
     finally { setLoading(false) }
   }
@@ -57,7 +48,7 @@ const Commandes = () => {
     try {
       const fd = new FormData()
       fd.append('titre', form.titre)
-      if (form.fournisseur) fd.append('fournisseur', form.fournisseur)
+      if (form.fournisseur) fd.append('fournisseur_nom', form.fournisseur)
       if (form.montant) fd.append('montant', form.montant)
       if (form.echeance) fd.append('echeance', form.echeance)
       fd.append('mode_livraison', form.mode_livraison)
@@ -65,21 +56,20 @@ const Commandes = () => {
       fd.append('validation_direction', 'en_attente')
       fd.append('validation_finance', 'en_attente')
       if (docFile) fd.append('demande_achat', docFile)
-
       await api.post('/commandes/', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
       setShowForm(false)
       setForm({ titre: '', fournisseur: '', montant: '', echeance: '', mode_livraison: '', type_paiement: '' })
       setDocFile(null)
-      fetchData()
+      await fetchData()
     } catch (err) { console.error(err) }
   }
 
   const handleDelete = async (id: number) => {
-    try { await api.delete(`/commandes/${id}/`); fetchData() } catch (err) { console.error(err) }
+    try { await api.delete(`/commandes/${id}/`); await fetchData() } catch (err) { console.error(err) }
   }
 
   const updateField = async (id: number, data: any) => {
-    try { await api.patch(`/commandes/${id}/`, data); fetchData() } catch (err) { console.error(err) }
+    try { await api.patch(`/commandes/${id}/`, data); await fetchData() } catch (err) { console.error(err) }
   }
 
   const uploadDoc = async (id: number, file: File) => {
@@ -87,28 +77,28 @@ const Commandes = () => {
       const fd = new FormData()
       fd.append('demande_achat', file)
       await api.patch(`/commandes/${id}/`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-      fetchData()
+      await fetchData()
     } catch (err) { console.error(err) }
   }
 
   const handleImport = async (rows: any[]) => {
-  for (const row of rows) {
-    try {
-      await api.post('/commandes/', {
-        titre: row.titre || 'Sans titre',
-        fournisseur: null,
-        montant: row.montant ? parseFloat(String(row.montant).replace(',', '.')) : null,
-        echeance: row.echeance || null,
-        mode_livraison: row.mode_livraison || '',
-        type_paiement: row.type_paiement || '',
-        validation_direction: 'en_attente',
-        validation_finance: 'en_attente',
-      })
-    } catch (err) { console.error(err) }
+    for (const row of rows) {
+      try {
+        await api.post('/commandes/', {
+          titre: row.titre || 'Sans titre',
+          fournisseur: null,
+          montant: row.montant ? parseFloat(String(row.montant).replace(',', '.')) : null,
+          echeance: row.echeance || null,
+          mode_livraison: row.mode_livraison || '',
+          type_paiement: row.type_paiement || '',
+          validation_direction: 'en_attente',
+          validation_finance: 'en_attente',
+        })
+      } catch (err) { console.error(err) }
+    }
+    setLoading(true)
+    await fetchData()
   }
-  setLoading(true)
-  await fetchData()
-}
 
   const inputStyle = { width: '100%', padding: '8px 12px', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '13px', outline: 'none' }
   const addNewStyle = { display: 'flex', gap: '6px', marginTop: '6px' }
@@ -117,7 +107,6 @@ const Commandes = () => {
     ...c,
     fournisseur_nom: c.fournisseur_nom || '—',
     montant_fmt: c.montant ? `${Number(c.montant).toLocaleString('fr-FR')} DH` : '—',
-    echeance_fmt: c.echeance ? new Date(c.echeance).toLocaleDateString('fr-FR') : '—',
     doc_url: c.doc_url || null,
   }))
 
@@ -145,9 +134,10 @@ const Commandes = () => {
               onImport={handleImport}
               columns={[
                 { key: 'titre', label: 'Titre' },
+                { key: 'fournisseur', label: 'Fournisseur' },
                 { key: 'montant', label: 'Montant' },
-                { key: 'echeance', label: 'Échéance' },
-                { key: 'mode_livraison', label: 'Mode de livraison' },
+                { key: 'echeance', label: 'Échéance (jours)' },
+                { key: 'mode_livraison', label: 'Durée de livraison (jours)' },
                 { key: 'type_paiement', label: 'Type de paiement' },
               ]}
             />
@@ -166,34 +156,19 @@ const Commandes = () => {
                 </div>
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Fournisseur</label>
-                  <select style={inputStyle} value={form.fournisseur} onChange={e => setForm({ ...form, fournisseur: e.target.value })}>
-                    <option value="">— Aucun —</option>
-                    {fournisseurs.map(f => <option key={f.id} value={f.id}>{f.nom}</option>)}
-                  </select>
+                  <input style={inputStyle} value={form.fournisseur} onChange={e => setForm({ ...form, fournisseur: e.target.value })} placeholder="Nom du fournisseur" />
                 </div>
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Montant (DH)</label>
                   <input style={inputStyle} type="number" value={form.montant} onChange={e => setForm({ ...form, montant: e.target.value })} placeholder="0.00" />
                 </div>
                 <div>
-                  <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Échéance</label>
-                  <input style={inputStyle} type="date" value={form.echeance} onChange={e => setForm({ ...form, echeance: e.target.value })} />
+                  <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Échéance (jours)</label>
+                  <input style={inputStyle} value={form.echeance} onChange={e => setForm({ ...form, echeance: e.target.value })} placeholder="Ex: 30" />
                 </div>
                 <div>
-                  <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Mode de livraison</label>
-                  <select style={inputStyle} value={form.mode_livraison}
-                    onChange={e => { if (e.target.value === '__add__') { setShowAddMode(true) } else { setForm({ ...form, mode_livraison: e.target.value }); setShowAddMode(false) } }}>
-                    <option value="">— Choisir —</option>
-                    {modesLivraison.map(m => <option key={m} value={m}>{m}</option>)}
-                    <option value="__add__">➕ Add New</option>
-                  </select>
-                  {showAddMode && (
-                    <div style={addNewStyle}>
-                      <input style={{ ...inputStyle, flex: 1 }} value={newMode} onChange={e => setNewMode(e.target.value)} placeholder="Nouveau mode..." onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), newMode.trim() && (setModesLivraison([...modesLivraison, newMode.trim()]), setForm({ ...form, mode_livraison: newMode.trim() }), setNewMode(''), setShowAddMode(false)))} />
-                      <button type="button" onClick={() => { if (newMode.trim()) { setModesLivraison([...modesLivraison, newMode.trim()]); setForm({ ...form, mode_livraison: newMode.trim() }); setNewMode(''); setShowAddMode(false) } }} style={{ padding: '8px 12px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>OK</button>
-                      <button type="button" onClick={() => { setShowAddMode(false); setNewMode('') }} style={{ padding: '8px 12px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>✕</button>
-                    </div>
-                  )}
+                  <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Durée de livraison (jours)</label>
+                  <input style={inputStyle} value={form.mode_livraison} onChange={e => setForm({ ...form, mode_livraison: e.target.value })} placeholder="Ex: 7" />
                 </div>
                 <div>
                   <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Type de paiement</label>
@@ -226,7 +201,7 @@ const Commandes = () => {
               </div>
               <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
                 <button type="submit" style={{ padding: '8px 20px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Créer</button>
-                <button type="button" onClick={() => { setShowForm(false); setShowAddMode(false); setShowAddType(false); setDocFile(null) }} style={{ padding: '8px 20px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Annuler</button>
+                <button type="button" onClick={() => { setShowForm(false); setShowAddType(false); setDocFile(null) }} style={{ padding: '8px 20px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Annuler</button>
               </div>
             </form>
           </div>
@@ -242,15 +217,26 @@ const Commandes = () => {
               { key: 'titre', label: 'Titre', render: (_v: any, row: any) => <span style={{ fontWeight: '500', color: '#2c2c2c' }}>{row.titre}</span> },
               { key: 'fournisseur_nom', label: 'Fournisseur', render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.fournisseur_nom}</span> },
               { key: 'montant_fmt', label: 'Montant', render: (_v: any, row: any) => <span style={{ fontWeight: '600', color: '#1a3a6b' }}>{row.montant_fmt}</span> },
-              { key: 'echeance_fmt', label: 'Échéance', render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.echeance_fmt}</span> },
               {
-                key: 'mode_livraison', label: 'Mode de livraison', sortable: false,
+                key: 'echeance', label: 'Échéance (jours)', sortable: false,
                 render: (_v: any, row: any) => (
-                  <select value={row.mode_livraison || ''} onChange={e => updateField(row.id, { mode_livraison: e.target.value })}
-                    style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', border: '1px solid #e0e0e0', cursor: 'pointer', minWidth: '130px' }}>
-                    <option value="">— Choisir —</option>
-                    {modesLivraison.map(m => <option key={m} value={m}>{m}</option>)}
-                  </select>
+                  <input
+                    defaultValue={row.echeance || ''}
+                    onBlur={e => { if (e.target.value !== String(row.echeance || '')) updateField(row.id, { echeance: e.target.value }) }}
+                    style={{ padding: '3px 8px', border: '1px solid #e0e0e0', borderRadius: '4px', fontSize: '11px', width: '80px', outline: 'none' }}
+                    placeholder="Ex: 30"
+                  />
+                )
+              },
+              {
+                key: 'mode_livraison', label: 'Durée de livraison (jours)', sortable: false,
+                render: (_v: any, row: any) => (
+                  <input
+                    defaultValue={row.mode_livraison || ''}
+                    onBlur={e => { if (e.target.value !== String(row.mode_livraison || '')) updateField(row.id, { mode_livraison: e.target.value }) }}
+                    style={{ padding: '3px 8px', border: '1px solid #e0e0e0', borderRadius: '4px', fontSize: '11px', width: '80px', outline: 'none' }}
+                    placeholder="Ex: 7"
+                  />
                 )
               },
               {
