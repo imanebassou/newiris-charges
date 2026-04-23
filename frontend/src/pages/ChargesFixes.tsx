@@ -41,13 +41,6 @@ const ChargesFixes = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      // Construire la période
-      let periode = ''
-      if (form.date_debut && form.date_fin) {
-        const d1 = new Date(form.date_debut).toLocaleDateString('fr-FR')
-        const d2 = new Date(form.date_fin).toLocaleDateString('fr-FR')
-        periode = `${d1} au ${d2}`
-      }
       await api.post('/charges-fixes/', {
         service: parseInt(form.service),
         categorie: form.categorie,
@@ -120,6 +113,8 @@ const ChargesFixes = () => {
 
   // ─── VUE CATÉGORIES ───
   if (showCategories) {
+    const categoriesTableData = categoriesConfig.map((cat, i) => ({ ...cat, _index: i }))
+
     return (
       <Layout>
         <div style={{ padding: '20px' }}>
@@ -160,18 +155,18 @@ const ChargesFixes = () => {
           <SortableTable
             emptyMessage="Aucune catégorie configurée — cliquez sur + Ajouter NV"
             columns={[
-              { key: 'index', label: '#', render: (_v: any, _row: any, index: number) => <span style={{ color: '#aaa' }}>{index + 1}</span> },
+              { key: '_index', label: '#', render: (_v: any, row: any) => <span style={{ color: '#aaa' }}>{row._index + 1}</span> },
               { key: 'categorie', label: 'Catégorie', render: (_v: any, row: any) => <span style={{ fontWeight: '500', color: '#2c2c2c' }}>{row.categorie}</span> },
               { key: 'jour_du_mois', label: 'Date de prévision (jour du mois)', render: (_v: any, row: any) => (
                 <span style={{ background: '#e8f4fb', color: '#0099cc', padding: '3px 10px', borderRadius: '4px', fontSize: '12px', fontWeight: '600' }}>
                   Jour {row.jour_du_mois} du mois
                 </span>
               )},
-              { key: 'actions', label: 'Actions', sortable: false, render: (_v: any, _row: any, index: number) => (
-                <button onClick={() => handleDeleteCategorie(index)} style={{ padding: '4px 10px', background: '#fdeaea', color: '#c0392b', border: '1px solid #f5c6c6', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>Supprimer</button>
+              { key: 'actions', label: 'Actions', sortable: false, render: (_v: any, row: any) => (
+                <button onClick={() => handleDeleteCategorie(row._index)} style={{ padding: '4px 10px', background: '#fdeaea', color: '#c0392b', border: '1px solid #f5c6c6', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>Supprimer</button>
               )},
             ]}
-            data={categoriesConfig}
+            data={categoriesTableData}
           />
         </div>
       </Layout>
@@ -351,7 +346,6 @@ const ChargesFixes = () => {
                       <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Date fin période</label>
                       <input style={inputStyle} type="date" value={form.date_fin} onChange={e => setForm({ ...form, date_fin: e.target.value })} />
                     </div>
-                    {/* Affichage période */}
                     {form.date_debut && form.date_fin && (
                       <div style={{ gridColumn: '1 / -1' }}>
                         <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Période</label>

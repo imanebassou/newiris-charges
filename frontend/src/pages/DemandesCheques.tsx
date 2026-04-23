@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import api from '../api/axios'
 import SortableTable from '../components/SortableTable'
@@ -6,8 +7,16 @@ import ImportExcel from '../components/ImportExcel'
 
 const TYPES_PAIEMENT_DEFAULT = ['Chèque', 'Virement', 'Espèces', 'Carte bancaire']
 
+const CHOIX_LABELS: Record<string, string> = { en_attente: 'En attente', ok: 'OK', nok: 'NOK' }
+const choixStyle = (val: string) => {
+  if (val === 'ok') return { bg: '#e8f8ef', color: '#1a7a40' }
+  if (val === 'nok') return { bg: '#fdeaea', color: '#c0392b' }
+  return { bg: '#fff3e0', color: '#e65100' }
+}
+
 const DemandesCheques = () => {
   document.title = 'Demandes Chèques — Newiris'
+  const navigate = useNavigate()
 
   const [demandes, setDemandes] = useState<any[]>([])
   const [commandes, setCommandes] = useState<any[]>([])
@@ -84,22 +93,6 @@ const DemandesCheques = () => {
     await api.patch(`/cheques/demandes/${id}/`, data); fetchData()
   }
 
-  const handleAddChequeFromCommande = async (commande: any) => {
-    try {
-      await api.post('/cheques/demandes/', {
-        titre: commande.titre,
-        fournisseur: commande.fournisseur || null,
-        montant: commande.montant || 0,
-        date_souhaitee_signature: commande.echeance || new Date().toISOString().split('T')[0],
-        categorie: 'Paiement fournisseur',
-        etat_signature: 'en_cours',
-        etat_livraison: 'en_cours',
-      })
-      setSuccess(true); setTimeout(() => setSuccess(false), 3000)
-      fetchData()
-    } catch (err) { console.error(err) }
-  }
-
   const handleAddFournisseur = async () => {
     if (!newFourn.trim()) return
     try {
@@ -137,9 +130,6 @@ const DemandesCheques = () => {
     setLoading(true)
     await fetchData()
   }
-
-  const getDemandePourCommande = (commande: any) =>
-    demandes.filter(d => d.titre === commande.titre)
 
   const inputStyle = { width: '100%', padding: '8px 12px', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '13px', outline: 'none' }
   const addNewInputStyle = { display: 'flex', gap: '6px', marginTop: '6px' }
@@ -216,7 +206,6 @@ const DemandesCheques = () => {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {commandes.map(commande => {
-                const demandesLiees = getDemandePourCommande(commande)
                 const isExpanded = expandedCommande === commande.id
                 return (
                   <div key={commande.id} style={{ border: '1px solid #e8eaed', borderRadius: '8px', overflow: 'hidden', background: '#fff' }}>
@@ -230,45 +219,48 @@ const DemandesCheques = () => {
                         <button onClick={() => setExpandedCommande(isExpanded ? null : commande.id)} style={{ padding: '6px 14px', background: '#fff', color: '#1a3a6b', border: '1px solid #1a3a6b', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>
                           {isExpanded ? 'Masquer' : 'View details'}
                         </button>
-                        <button onClick={() => handleAddChequeFromCommande(commande)} style={{ padding: '6px 14px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>
+                        <button onClick={() => navigate('/commandes')} style={{ padding: '6px 14px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>
                           + Add new cheque
                         </button>
                       </div>
                     </div>
                     {isExpanded && (
                       <div style={{ padding: '16px 20px', borderTop: '1px solid #e8eaed' }}>
-                        {demandesLiees.length > 0 ? (
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                            <thead>
-                              <tr style={{ background: '#f8f9fa' }}>
-                                {['ID', 'Titre', 'Fournisseur', 'Montant', 'PO (pièce joint)', 'Catégorie', 'Date signature souhaitée', 'État signature', 'Livré à équipe', 'Livré au transport', 'Date échéance'].map(h => (
-                                  <th key={h} style={{ padding: '8px 12px', textAlign: 'left', color: '#1a3a6b', fontWeight: '600', borderBottom: '2px solid #e8eaed', fontSize: '11px', whiteSpace: 'nowrap' }}>{h}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {demandesLiees.map(d => (
-                                <tr key={d.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                                  <td style={{ padding: '8px 12px', color: '#aaa' }}>{d.id}</td>
-                                  <td style={{ padding: '8px 12px', fontWeight: '500', color: '#2c2c2c' }}>{d.titre}</td>
-                                  <td style={{ padding: '8px 12px', color: '#555' }}>{d.fournisseur_nom || '—'}</td>
-                                  <td style={{ padding: '8px 12px', fontWeight: '600', color: '#1a3a6b' }}>{Number(d.montant).toLocaleString('fr-FR')} DH</td>
-                                  <td style={{ padding: '8px 12px' }}><span style={{ background: '#e8f4fb', color: '#0099cc', padding: '2px 8px', borderRadius: '4px', fontSize: '11px' }}>Doc (pièce joint)</span></td>
-                                  <td style={{ padding: '8px 12px' }}><span style={{ background: '#e8f4fb', color: '#0099cc', padding: '2px 8px', borderRadius: '4px', fontSize: '11px' }}>{d.categorie}</span></td>
-                                  <td style={{ padding: '8px 12px', color: '#555' }}>{d.date_souhaitee_signature ? new Date(d.date_souhaitee_signature).toLocaleDateString('fr-FR') : '—'}</td>
-                                  <td style={{ padding: '8px 12px' }}><span style={{ background: d.etat_signature === 'signe' ? '#e8f8ef' : '#fff3e0', color: d.etat_signature === 'signe' ? '#1a7a40' : '#e65100', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600' }}>{d.etat_signature === 'signe' ? 'Signé' : 'En cours'}</span></td>
-                                  <td style={{ padding: '8px 12px' }}><span style={{ background: d.etat_livraison === 'livre' ? '#e8f8ef' : '#fff3e0', color: d.etat_livraison === 'livre' ? '#1a7a40' : '#e65100', padding: '2px 8px', borderRadius: '4px', fontSize: '11px' }}>{d.etat_livraison === 'livre' ? 'Livré' : 'En cours'}</span></td>
-                                  <td style={{ padding: '8px 12px' }}><span style={{ background: d.etat_livraison === 'livre' ? '#e8f8ef' : '#fff3e0', color: d.etat_livraison === 'livre' ? '#1a7a40' : '#e65100', padding: '2px 8px', borderRadius: '4px', fontSize: '11px' }}>{d.etat_livraison === 'livre' ? 'Livré' : 'En cours'}</span></td>
-                                  <td style={{ padding: '8px 12px', color: '#555' }}>{d.date_echeance ? new Date(d.date_echeance).toLocaleDateString('fr-FR') : '—'}</td>
-                                </tr>
+                        {/* Afficher détails de commande (Page gestion de commande) */}
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                          <thead>
+                            <tr style={{ background: '#f8f9fa' }}>
+                              {['ID', 'Titre', 'Fournisseur', 'Montant', 'Échéance', 'Mode de livraison', 'Type de paiement', 'Demande Achat (Doc)', 'Validation Direction', 'Validation Finance', 'Actions'].map(h => (
+                                <th key={h} style={{ padding: '8px 12px', textAlign: 'left', color: '#1a3a6b', fontWeight: '600', borderBottom: '2px solid #e8eaed', fontSize: '11px', whiteSpace: 'nowrap' }}>{h}</th>
                               ))}
-                            </tbody>
-                          </table>
-                        ) : (
-                          <div style={{ textAlign: 'center', color: '#aaa', fontSize: '12px', padding: '20px 0', fontStyle: 'italic' }}>
-                            Aucune demande de chèque associée — cliquez sur "+ Add new cheque" pour en créer une
-                          </div>
-                        )}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr style={{ borderBottom: '1px solid #f5f5f5' }}>
+                              <td style={{ padding: '8px 12px', color: '#aaa' }}>{commande.id}</td>
+                              <td style={{ padding: '8px 12px', fontWeight: '500', color: '#2c2c2c' }}>{commande.titre}</td>
+                              <td style={{ padding: '8px 12px', color: '#555' }}>{commande.fournisseur_nom || '—'}</td>
+                              <td style={{ padding: '8px 12px', fontWeight: '600', color: '#1a3a6b' }}>{commande.montant ? `${Number(commande.montant).toLocaleString('fr-FR')} DH` : '—'}</td>
+                              <td style={{ padding: '8px 12px', color: '#555' }}>{commande.echeance || '—'}</td>
+                              <td style={{ padding: '8px 12px', color: '#555' }}>{commande.mode_livraison || '—'}</td>
+                              <td style={{ padding: '8px 12px', color: '#555' }}>{commande.type_paiement || '—'}</td>
+                              <td style={{ padding: '8px 12px' }}>
+                                {commande.doc_url
+                                  ? <a href={commande.doc_url} target="_blank" rel="noreferrer" style={{ padding: '3px 8px', background: '#e8f4fb', color: '#0099cc', border: '1px solid #b3d9f0', borderRadius: '4px', fontSize: '11px', textDecoration: 'none' }}>📄 Voir</a>
+                                  : <span style={{ color: '#aaa', fontSize: '11px' }}>—</span>}
+                              </td>
+                              <td style={{ padding: '8px 12px' }}>
+                                {(() => { const s = choixStyle(commande.validation_direction); return <span style={{ background: s.bg, color: s.color, padding: '3px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: '600' }}>{CHOIX_LABELS[commande.validation_direction] || commande.validation_direction}</span> })()}
+                              </td>
+                              <td style={{ padding: '8px 12px' }}>
+                                {(() => { const s = choixStyle(commande.validation_finance); return <span style={{ background: s.bg, color: s.color, padding: '3px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: '600' }}>{CHOIX_LABELS[commande.validation_finance] || commande.validation_finance}</span> })()}
+                              </td>
+                              <td style={{ padding: '8px 12px' }}>
+                                <button onClick={() => navigate('/commandes')} style={{ padding: '4px 10px', background: '#e8f4fb', color: '#0099cc', border: '1px solid #b3d9f0', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>Gérer</button>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
                       </div>
                     )}
                   </div>
