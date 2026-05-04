@@ -1,5 +1,6 @@
 from django.db import models
 
+
 class Service(models.Model):
     nom = models.CharField(max_length=100)
     responsable = models.ForeignKey(
@@ -9,6 +10,7 @@ class Service(models.Model):
         blank=True,
         related_name='services_responsable'
     )
+    photo = models.ImageField(upload_to='services/logos/', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

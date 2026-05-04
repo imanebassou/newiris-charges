@@ -1,5 +1,6 @@
 from django.db import models
 
+
 class SoldeInitial(models.Model):
     montant = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     date_modification = models.DateTimeField(auto_now=True)
@@ -13,14 +14,21 @@ class SoldeInitial(models.Model):
 
 class ActionBanque(models.Model):
     TYPE_CHOICES = [
-        ('entree', 'Entrée'),
+        ('entree', 'Entree'),
         ('sortie', 'Sortie'),
     ]
     STATUT_CHOICES = [
         ('en_cours', 'En cours'),
-        ('traitee', 'Traitée'),
+        ('traitee', 'Traitee'),
     ]
 
+    source_prevision = models.OneToOneField(
+        'previsions.Prevision',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='banque_action'
+    )
     type = models.CharField(max_length=10, choices=TYPE_CHOICES)
     date = models.DateField()
     titre = models.CharField(max_length=255)

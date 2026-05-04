@@ -1,5 +1,6 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
+
 from .models import Vehicule, DossierVehicule, ActionVehicule, DemandeVehicule
 from .serializers import (
     VehiculeSerializer, DossierVehiculeSerializer,
@@ -14,7 +15,6 @@ class VehiculeViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         vehicule = serializer.save()
-        # Créer automatiquement un dossier vide pour ce véhicule
         DossierVehicule.objects.create(vehicule=vehicule)
 
 

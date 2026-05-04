@@ -1,0 +1,13 @@
+NEWIRIS - Notification fournisseur
+
+Etat de regularite depasse
+
+Fournisseur : {{ fournisseur.nom }}
+Type de contrat : {{ fournisseur.type_contrat }}
+Date de fin RF : {{ date_fin_rf|date:"d/m/Y" }}
+Echeance : {{ echeance }} jour(s)
+Etat actuel : {{ etat_regularite_label }}
+
+Merci de verifier ce dossier sur la page Fournisseurs.
+
+NEWIRIS Dashboard - Tanger - {{ year }}

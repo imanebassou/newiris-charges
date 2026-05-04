@@ -37,28 +37,52 @@ class CaissePersonnelle(models.Model):
 
 
 class ActionCaisse(models.Model):
-    TYPE_CHOICES = [('entree', 'Entrée'), ('sortie', 'Sortie')]
-    STATUT_CHOICES = [('en_cours', 'En cours'), ('traitee', 'Traitée')]
-    CATEGORIE_CHOICES = [
-        ('charge_variable', 'Charge Variable'),
-        ('vehicule', 'Véhicule'),
-        ('transport', 'Transport'),
-        ('administratif', 'Charges administratives'),
-        ('equipe', 'Dépenses équipe'),
-        ('entretien', 'Entretien & nettoyage'),
-        ('autre', 'Autre'),
+    TYPE_CHOICES = [
+        ('entree', 'Entree'),
+        ('sortie', 'Sortie'),
+    ]
+
+    STATUT_CHOICES = [
+        ('en_cours', 'En cours'),
+        ('traitee', 'Traitee'),
+    ]
+
+    TYPE_CHARGE_CHOICES = [
+        ('charge_variable', 'Charge variable'),
+        ('charge_fixe', 'Charge fixe'),
     ]
 
     caisse = models.ForeignKey(
-        CaissePersonnelle, on_delete=models.CASCADE,
-        related_name='actions', null=True, blank=True
+        CaissePersonnelle,
+        on_delete=models.CASCADE,
+        related_name='actions',
+        null=True,
+        blank=True
+    )
+    source_action = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='copies_liees'
     )
     type = models.CharField(max_length=10, choices=TYPE_CHOICES)
     titre = models.CharField(max_length=200)
     service = models.ForeignKey(
-        Service, on_delete=models.SET_NULL, null=True, blank=True
+        Service,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
     )
-    categorie = models.CharField(max_length=50, choices=CATEGORIE_CHOICES)
+
+    type_charge = models.CharField(
+        max_length=20,
+        choices=TYPE_CHARGE_CHOICES,
+        default='charge_variable'
+    )
+    categorie = models.CharField(max_length=100)
+    sous_categorie = models.CharField(max_length=100, blank=True)
+
     montant = models.DecimalField(max_digits=12, decimal_places=2)
     date = models.DateField()
     personne = models.CharField(max_length=100, blank=True)
@@ -67,7 +91,6 @@ class ActionCaisse(models.Model):
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    # Pour la caisse principale (sans caisse FK)
     is_caisse_principale = models.BooleanField(default=False)
 
     class Meta:

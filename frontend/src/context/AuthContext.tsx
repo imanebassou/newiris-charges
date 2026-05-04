@@ -1,15 +1,32 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
+
+import api from '../api/axios'
+
+interface PagePermission {
+  page: number
+  page_id: number
+  page_code: string
+  page_label: string
+  page_path: string
+  can_view: boolean
+  can_create: boolean
+  can_edit: boolean
+  can_delete: boolean
+}
 
 interface User {
   id: number
   username: string
   email: string
+  first_name: string
+  last_name: string
   role: string
   service: number | null
   fonction: string
   phone: string
   photo: string | null
+  page_permissions: PagePermission[]
 }
 
 interface AuthContextType {
@@ -17,6 +34,9 @@ interface AuthContextType {
   token: string | null
   login: (userData: User, accessToken: string, refreshToken: string) => void
   logout: () => void
+  refreshUser: () => Promise<void>
+  canViewPage: (pageCode: string) => boolean
+  getPagePermission: (pageCode: string) => PagePermission | undefined
   isAuthenticated: boolean
 }
 
@@ -26,12 +46,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null)
   const [token, setToken] = useState<string | null>(null)
 
+  const refreshUser = async () => {
+    try {
+      const res = await api.get('/auth/me/')
+      setUser(res.data)
+      localStorage.setItem('user', JSON.stringify(res.data))
+    } catch (error) {
+      setUser(null)
+      setToken(null)
+      localStorage.removeItem('access_token')
+      localStorage.removeItem('refresh_token')
+      localStorage.removeItem('user')
+    }
+  }
+
   useEffect(() => {
     const savedToken = localStorage.getItem('access_token')
     const savedUser = localStorage.getItem('user')
-    if (savedToken && savedUser) {
+
+    if (savedToken) {
       setToken(savedToken)
-      setUser(JSON.parse(savedUser))
+      if (savedUser) {
+        setUser(JSON.parse(savedUser))
+      }
+      void refreshUser()
     }
   }, [])
 
@@ -51,14 +89,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem('user')
   }
 
+  const getPagePermission = (pageCode: string) =>
+    user?.page_permissions?.find((permission) => permission.page_code === pageCode)
+
+  const canViewPage = (pageCode: string) => !!getPagePermission(pageCode)?.can_view
+
   return (
-    <AuthContext.Provider value={{
-      user,
-      token,
-      login,
-      logout,
-      isAuthenticated: !!token
-    }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        login,
+        logout,
+        refreshUser,
+        canViewPage,
+        getPagePermission,
+        isAuthenticated: !!token,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )

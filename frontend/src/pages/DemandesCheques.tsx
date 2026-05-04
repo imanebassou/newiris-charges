@@ -1,417 +1,1117 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
 import Layout from '../components/Layout'
 import api from '../api/axios'
-import SortableTable from '../components/SortableTable'
-import ImportExcel from '../components/ImportExcel'
+import { useAuth } from '../context/AuthContext'
 
-const TYPES_PAIEMENT_DEFAULT = ['Chèque', 'Virement', 'Espèces', 'Carte bancaire']
 
-const CHOIX_LABELS: Record<string, string> = { en_attente: 'En attente', ok: 'OK', nok: 'NOK' }
-const choixStyle = (val: string) => {
-  if (val === 'ok') return { bg: '#e8f8ef', color: '#1a7a40' }
-  if (val === 'nok') return { bg: '#fdeaea', color: '#c0392b' }
-  return { bg: '#fff3e0', color: '#e65100' }
+const cardStyle = {
+  background: '#ffffff',
+  borderRadius: '12px',
+  border: '1px solid #d9e0e7',
+  boxShadow: '0 12px 28px rgba(19, 29, 43, 0.05)',
+}
+
+const inputStyle = {
+  width: '100%',
+  padding: '8px 11px',
+  border: '1px solid #d9e0e7',
+  borderRadius: '9px',
+  fontSize: '12px',
+  outline: 'none',
+  background: '#fff',
+  color: '#1f2937',
+}
+
+const compactButton = (
+  tone: 'dark' | 'soft' | 'blue' | 'violet' | 'danger' | 'green' = 'soft',
+  disabled = false
+) => {
+  const palette = {
+    dark: { bg: '#1d2836', color: '#fff', border: '#1d2836' },
+    soft: { bg: '#fff', color: '#1d2836', border: '#d9e0e7' },
+    blue: { bg: '#eef4ff', color: '#2a5ea8', border: '#cddcf5' },
+    violet: { bg: '#f5f0ff', color: '#6b21a8', border: '#e6d5f7' },
+    danger: { bg: '#fff', color: '#c93128', border: '#f0c7c5' },
+    green: { bg: '#fff', color: '#1f8a57', border: '#ccebdc' },
+  }[tone]
+
+  return {
+    padding: '8px 14px',
+    borderRadius: '10px',
+    border: `1px solid ${palette.border}`,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    fontSize: '11px',
+    background: palette.bg,
+    color: palette.color,
+    fontWeight: 700,
+    opacity: disabled ? 0.55 : 1,
+  }
+}
+
+const fmtDh = (value: any) =>
+  Number(value || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })
+
+const getTicketStatusMeta = (value?: string | null) => {
+  if (!value) {
+    return {
+      label: 'Nouvelle commande',
+      bg: '#f8fafc',
+      color: '#64748b',
+      border: '#d9e0e7',
+    }
+  }
+
+  if (value === 'en_validation') {
+    return {
+      label: 'En validation',
+      bg: '#fff4df',
+      color: '#b76b00',
+      border: '#f2d38a',
+    }
+  }
+
+  if (value === 'reporte') {
+    return {
+      label: 'Reporte',
+      bg: '#fdeceb',
+      color: '#c93128',
+      border: '#f4cfcf',
+    }
+  }
+
+  if (value === 'en_attente_signature') {
+    return {
+      label: 'En attente de signature',
+      bg: '#eef4ff',
+      color: '#2a5ea8',
+      border: '#cddcf5',
+    }
+  }
+
+  if (value === 'cheque_signe') {
+    return {
+      label: 'Cheque signe',
+      bg: '#e9f7f0',
+      color: '#1f8a57',
+      border: '#ccebdc',
+    }
+  }
+
+  if (value === 'livre_a_equipe') {
+    return {
+      label: 'Livre a l equipe',
+      bg: '#f5f0ff',
+      color: '#6b21a8',
+      border: '#e6d5f7',
+    }
+  }
+
+  return {
+    label: 'Traite',
+    bg: '#e9f7f0',
+    color: '#1f8a57',
+    border: '#ccebdc',
+  }
 }
 
 const DemandesCheques = () => {
-  document.title = 'Demandes Chèques — Newiris'
-  const navigate = useNavigate()
+  document.title = 'Demandes de cheques - NEWIRIS'
 
-  const [demandes, setDemandes] = useState<any[]>([])
+  const { user } = useAuth()
+  const role = user?.role || ''
+  const isAdmin = role === 'admin' || role === 'super_admin'
+  const isAchat = role === 'achat'
+
   const [commandes, setCommandes] = useState<any[]>([])
-  const [fournisseurs, setFournisseurs] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [expandedCommande, setExpandedCommande] = useState<number | null>(null)
-  const [form, setForm] = useState({ titre: '', fournisseur: '', montant: '', date_souhaitee_signature: '' })
-  const [typesPaiement, setTypesPaiement] = useState<string[]>(TYPES_PAIEMENT_DEFAULT)
-  const [showAddFourn, setShowAddFourn] = useState(false)
-  const [newFourn, setNewFourn] = useState('')
-  const [showAddType, setShowAddType] = useState(false)
-  const [newType, setNewType] = useState('')
-  const [editingEcheance, setEditingEcheance] = useState<number | null>(null)
-  const [echeanceInput, setEcheanceInput] = useState('')
-  const [editingDate, setEditingDate] = useState<number | null>(null)
-  const [dateInput, setDateInput] = useState('')
-  const [editingMontant, setEditingMontant] = useState<number | null>(null)
-  const [montantInput, setMontantInput] = useState('')
+  const [demandes, setDemandes] = useState<any[]>([])
+  const [success, setSuccess] = useState('')
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState<Record<number, boolean>>({})
+  const [modalCommandeId, setModalCommandeId] = useState<number | null>(null)
+  const [activeChequeIndexByCommande, setActiveChequeIndexByCommande] = useState<Record<number, number>>({})
+  const [, setShowAddType] = useState<number | null>(null)
+  const [formByCommande, setFormByCommande] = useState<Record<number, any>>({})
+  const [chequesByCommande, setChequesByCommande] = useState<Record<number, any[]>>({})
+  const [activeSection, setActiveSection] = useState<'dashboard' | 'gestion'>('gestion')
+  const [submitting, setSubmitting] = useState(false)
+
+  const flashSuccess = (message: string) => {
+    setSuccess(message)
+    setError('')
+    setTimeout(() => setSuccess(''), 2800)
+  }
+
+  const refreshSilently = () => {
+    void fetchData()
+  }
+
+  const hydrateFormFromTicket = (commande: any, row: any | null) => ({
+    commande: commande.id,
+    titre: row?.titre || commande.titre || '',
+    fournisseur: row?.fournisseur || commande.fournisseur || '',
+    montant: row?.montant || commande.montant || '',
+    type_paiement: row?.type_paiement || commande.type_paiement || '',
+    date_souhaitee_signature: row?.date_souhaitee_signature || '',
+    date_echeance: row?.date_echeance || commande.echeance || '',
+    statut_ticket: row?.statut_ticket || 'en_validation',
+    etat_signature: row?.etat_signature || 'en_cours',
+    livre_a_equipe: row?.livre_a_equipe || 'en_cours',
+    livre_au_transport: row?.livre_au_transport || 'en_cours',
+    etat_livraison: row?.etat_livraison || 'en_cours',
+    is_ticket_initial: row?.is_ticket_initial || false,
+    po: null,
+    po_url: row?.po_url || '',
+  })
 
   const fetchData = async () => {
-    setLoading(true)
     try {
-      const [demandesRes, fournsRes, commandesRes] = await Promise.all([
+      const [demandesRes, commandesRes] = await Promise.all([
         api.get('/cheques/demandes/'),
-        api.get('/fournisseurs/'),
         api.get('/commandes/'),
       ])
-      setDemandes(demandesRes.data)
-      setFournisseurs(fournsRes.data)
-      const commandesValidees = commandesRes.data.filter(
+
+      const demandesData = Array.isArray(demandesRes.data) ? demandesRes.data : []
+      const commandesData = Array.isArray(commandesRes.data) ? commandesRes.data : []
+
+      const commandesValidees = commandesData.filter(
         (c: any) => c.validation_finance === 'ok' && c.validation_direction === 'ok'
       )
-      setCommandes(commandesValidees)
-    } catch (err) { console.error(err) }
-    finally { setLoading(false) }
-  }
 
-  useEffect(() => { fetchData() }, [])
-
-  // ─── KPI TOTAUX DYNAMIQUES ───
-  const totalTout = demandes.reduce((sum, d) => sum + Number(d.montant), 0)
-  const totalSigne = demandes.filter(d => d.etat_signature === 'signe').reduce((sum, d) => sum + Number(d.montant), 0)
-  const totalLivre = demandes.filter(d => d.etat_livraison === 'livre').reduce((sum, d) => sum + Number(d.montant), 0)
-  const totalEnCours = demandes.filter(d => d.etat_signature !== 'signe' || d.etat_livraison !== 'livre').reduce((sum, d) => sum + Number(d.montant), 0)
-  const countSigne = demandes.filter(d => d.etat_signature === 'signe').length
-  const countLivre = demandes.filter(d => d.etat_livraison === 'livre').length
-  const countEnCours = demandes.filter(d => d.etat_signature !== 'signe' || d.etat_livraison !== 'livre').length
-
-  const handleSubmit = async () => {
-    if (!form.titre || !form.montant || !form.date_souhaitee_signature) {
-      setError('Titre, montant et date sont obligatoires.'); return
-    }
-    setError('')
-    try {
-      await api.post('/cheques/demandes/', {
-        titre: form.titre, fournisseur: form.fournisseur || null,
-        montant: form.montant, date_souhaitee_signature: form.date_souhaitee_signature,
-        categorie: 'Paiement fournisseur', etat_signature: 'en_cours', etat_livraison: 'en_cours',
+      const grouped: Record<number, any[]> = {}
+      demandesData.forEach((row: any) => {
+        if (!row.commande) return
+        if (!grouped[row.commande]) grouped[row.commande] = []
+        grouped[row.commande].push(row)
       })
-      setSuccess(true); setTimeout(() => setSuccess(false), 3000)
-      setForm({ titre: '', fournisseur: '', montant: '', date_souhaitee_signature: '' })
-      setShowForm(false); fetchData()
-    } catch { setError('Erreur lors de la création.') }
-  }
 
-  const handleDelete = async (id: number) => {
-    await api.delete(`/cheques/demandes/${id}/`); fetchData()
-  }
-
-  const updateField = async (id: number, data: any) => {
-    await api.patch(`/cheques/demandes/${id}/`, data); fetchData()
-  }
-
-  const handleAddFournisseur = async () => {
-    if (!newFourn.trim()) return
-    try {
-      const today = new Date()
-      const dateStr = new Date(today.setDate(today.getDate() + 180)).toISOString().split('T')[0]
-      const res = await api.post('/fournisseurs/', { nom: newFourn.trim(), type_contrat: 'Autres', date_fin_rf: dateStr })
-      setFournisseurs(prev => [...prev, res.data])
-      setForm(p => ({ ...p, fournisseur: res.data.id }))
-      setNewFourn(''); setShowAddFourn(false)
-    } catch (err) { console.error(err) }
-  }
-
-  const handleAddType = (demandId: number) => {
-    if (!newType.trim()) return
-    setTypesPaiement([...typesPaiement, newType.trim()])
-    updateField(demandId, { type_paiement: newType.trim() })
-    setNewType(''); setShowAddType(false)
-  }
-
-  const handleImport = async (rows: any[]) => {
-    const today = new Date().toISOString().split('T')[0]
-    for (const row of rows) {
-      try {
-        await api.post('/cheques/demandes/', {
-          titre: row.titre || 'Sans titre',
-          fournisseur: null,
-          montant: parseFloat(String(row.montant || '0').replace(',', '.')) || 0,
-          date_souhaitee_signature: row.date_souhaitee_signature || row.date || today,
-          categorie: row.categorie || 'Paiement fournisseur',
-          etat_signature: row.etat_signature === 'Signé' || row.etat_signature === 'signe' ? 'signe' : 'en_cours',
-          etat_livraison: row.etat_livraison === 'Livré' || row.etat_livraison === 'livre' ? 'livre' : 'en_cours',
+      Object.keys(grouped).forEach((key) => {
+        grouped[Number(key)] = grouped[Number(key)].sort((a: any, b: any) => {
+          if (Number(b.is_ticket_initial) !== Number(a.is_ticket_initial)) {
+            return Number(b.is_ticket_initial) - Number(a.is_ticket_initial)
+          }
+          return String(a.created_at || '').localeCompare(String(b.created_at || ''))
         })
-      } catch (err) { console.error(err) }
+      })
+
+      const nextForms: Record<number, any> = {}
+      const nextIndexes: Record<number, number> = {}
+
+      commandesValidees.forEach((commande: any) => {
+        const rows = grouped[commande.id] || []
+        nextIndexes[commande.id] = rows.length > 0 ? 0 : -1
+        nextForms[commande.id] = hydrateFormFromTicket(commande, rows[0] || null)
+      })
+
+      setDemandes(demandesData)
+      setCommandes(commandesValidees)
+      setChequesByCommande(grouped)
+      setFormByCommande(nextForms)
+      setActiveChequeIndexByCommande(nextIndexes)
+    } catch (err) {
+      console.error(err)
+      setError('Erreur de chargement des demandes de cheques.')
     }
-    setLoading(true)
-    await fetchData()
   }
 
-  const inputStyle = { width: '100%', padding: '8px 12px', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '13px', outline: 'none' }
-  const addNewInputStyle = { display: 'flex', gap: '6px', marginTop: '6px' }
+  useEffect(() => {
+    void fetchData()
+  }, [])
 
-  const tableData = demandes.map(d => ({
-    ...d,
-    fournisseur_nom: d.fournisseur_nom || '—',
-    montant_fmt: `${Number(d.montant).toLocaleString('fr-FR')} DH`,
-    date_signature_fmt: d.date_souhaitee_signature ? new Date(d.date_souhaitee_signature).toLocaleDateString('fr-FR') : '—',
-    date_echeance_fmt: d.date_echeance ? new Date(d.date_echeance).toLocaleDateString('fr-FR') : '—',
-    etat_signature_label: d.etat_signature === 'signe' ? 'Signé' : 'En cours',
-    etat_livraison_label: d.etat_livraison === 'livre' ? 'Livré' : 'En cours',
-  }))
+  const setCommandeForm = (commandeId: number, field: string, value: any) => {
+    setFormByCommande(prev => ({
+      ...prev,
+      [commandeId]: {
+        ...prev[commandeId],
+        [field]: value,
+      },
+    }))
+  }
+
+  const getCommandeRows = (commandeId: number) => chequesByCommande[commandeId] || []
+
+  const getInitialTicket = (commandeId: number) => {
+    const rows = getCommandeRows(commandeId)
+    return rows.find((row: any) => row.is_ticket_initial) || null
+  }
+
+  const getCurrentRow = (commandeId: number) => {
+    const rows = getCommandeRows(commandeId)
+    const index = activeChequeIndexByCommande[commandeId] ?? -1
+    if (index < 0) return null
+    return rows[index] || null
+  }
+
+  const openTicketModal = (commande: any, index = 0) => {
+    const rows = getCommandeRows(commande.id)
+    const row = index >= 0 ? rows[index] || null : null
+    setModalCommandeId(commande.id)
+    setActiveChequeIndexByCommande(prev => ({ ...prev, [commande.id]: index }))
+    setFormByCommande(prev => ({
+      ...prev,
+      [commande.id]: hydrateFormFromTicket(commande, row),
+    }))
+  }
+
+  const openInitialRequest = (commande: any) => {
+    setModalCommandeId(commande.id)
+    setActiveChequeIndexByCommande(prev => ({ ...prev, [commande.id]: -1 }))
+    setFormByCommande(prev => ({
+      ...prev,
+      [commande.id]: {
+        commande: commande.id,
+        titre: commande.titre || '',
+        fournisseur: commande.fournisseur || '',
+        montant: commande.montant || '',
+        type_paiement: commande.type_paiement || '',
+        date_souhaitee_signature: '',
+        date_echeance: commande.echeance || '',
+        statut_ticket: 'en_validation',
+        etat_signature: 'en_cours',
+        livre_a_equipe: 'en_cours',
+        livre_au_transport: 'en_cours',
+        etat_livraison: 'en_cours',
+        is_ticket_initial: true,
+        po: null,
+        po_url: '',
+      },
+    }))
+  }
+
+  const closeModal = () => {
+    setModalCommandeId(null)
+    setShowAddType(null)
+  }
+
+
+
+  const saveInitialRequest = async (commande: any) => {
+    const form = formByCommande[commande.id]
+
+    if (!form?.date_souhaitee_signature) {
+      setError('La date souhaitee de signature est obligatoire.')
+      return
+    }
+
+    if (!form?.fournisseur) {
+      setError('Le fournisseur est obligatoire.')
+      return
+    }
+
+    try {
+      setSubmitting(true)
+
+      const payload = new FormData()
+      payload.append('commande', String(commande.id))
+      payload.append('titre', String(form.titre || ''))
+      payload.append('fournisseur', String(form.fournisseur))
+      payload.append('montant', String(form.montant || 0))
+      payload.append('categorie', 'Paiement fournisseur')
+      payload.append('type_paiement', String(form.type_paiement || ''))
+      payload.append('date_souhaitee_signature', String(form.date_souhaitee_signature))
+      payload.append('is_ticket_initial', 'true')
+      payload.append('statut_ticket', 'en_validation')
+      payload.append('etat_signature', 'en_cours')
+      payload.append('livre_a_equipe', 'en_cours')
+      payload.append('livre_au_transport', 'en_cours')
+      payload.append('etat_livraison', 'en_cours')
+
+      if (form.po instanceof File) {
+        payload.append('po', form.po)
+      }
+
+      closeModal()
+      flashSuccess('Demande de cheque envoyee avec succes.')
+
+      await api.post('/cheques/demandes/', payload, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+
+      refreshSilently()
+    } catch (err: any) {
+      console.error(err)
+      const apiMessage =
+        err?.response?.data && typeof err.response.data === 'object'
+          ? Object.entries(err.response.data)
+              .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
+              .join(' | ')
+          : ''
+
+      setError(apiMessage || 'Erreur lors de l enregistrement.')
+      refreshSilently()
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const saveTicket = async (commande: any) => {
+    const form = formByCommande[commande.id]
+    const currentRow = getCurrentRow(commande.id)
+
+    if (!currentRow?.id) return
+
+    try {
+      setSubmitting(true)
+
+      const payload = new FormData()
+      payload.append('commande', String(commande.id))
+      payload.append('titre', String(form.titre || ''))
+      payload.append('fournisseur', String(form.fournisseur || ''))
+      payload.append('montant', String(form.montant || 0))
+      payload.append('categorie', 'Paiement fournisseur')
+      payload.append('type_paiement', String(form.type_paiement || ''))
+      payload.append('date_souhaitee_signature', String(form.date_souhaitee_signature || ''))
+      payload.append('date_echeance', String(form.date_echeance || ''))
+      payload.append('statut_ticket', String(form.statut_ticket || 'en_validation'))
+      payload.append('etat_signature', String(form.etat_signature || 'en_cours'))
+      payload.append('livre_a_equipe', String(form.livre_a_equipe || 'en_cours'))
+      payload.append('livre_au_transport', String(form.livre_au_transport || 'en_cours'))
+      payload.append('etat_livraison', String(form.etat_livraison || 'en_cours'))
+      payload.append('is_ticket_initial', String(currentRow.is_ticket_initial))
+
+      if (form.po instanceof File) {
+        payload.append('po', form.po)
+      }
+
+      closeModal()
+      flashSuccess('Ticket mis a jour avec succes.')
+
+      await api.patch(`/cheques/demandes/${currentRow.id}/`, payload, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+
+      refreshSilently()
+    } catch (err: any) {
+      console.error(err)
+      const apiMessage =
+        err?.response?.data && typeof err.response.data === 'object'
+          ? Object.entries(err.response.data)
+              .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
+              .join(' | ')
+          : ''
+
+      setError(apiMessage || 'Erreur lors de l enregistrement.')
+      refreshSilently()
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const updateTicketStatus = async (commande: any, status: string) => {
+    const currentRow = getCurrentRow(commande.id)
+    if (!currentRow?.id) return
+
+    try {
+      setSubmitting(true)
+      closeModal()
+      flashSuccess(status === 'en_attente_signature' ? 'Demande approuvee.' : 'Demande reportee.')
+
+      await api.patch(`/cheques/demandes/${currentRow.id}/`, { statut_ticket: status })
+      refreshSilently()
+    } catch (err) {
+      console.error(err)
+      setError('Impossible de mettre a jour le statut.')
+      refreshSilently()
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const deleteCurrent = async (commande: any) => {
+    const currentRow = getCurrentRow(commande.id)
+    if (!currentRow?.id) return
+
+    try {
+      setSubmitting(true)
+      closeModal()
+      flashSuccess('Ticket supprime avec succes.')
+
+      await api.delete(`/cheques/demandes/${currentRow.id}/`)
+      refreshSilently()
+    } catch (err) {
+      console.error(err)
+      setError('Suppression impossible.')
+      refreshSilently()
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const stats = useMemo(() => {
+    return {
+      commandes: commandes.length,
+      tickets: demandes.length,
+      validations: demandes.filter((row: any) => row.statut_ticket === 'en_validation').length,
+      signatures: demandes.filter((row: any) => row.statut_ticket === 'en_attente_signature').length,
+      traites: demandes.filter((row: any) => row.statut_ticket === 'traitee').length,
+    }
+  }, [commandes, demandes])
+
+  const modalCommande =
+    modalCommandeId != null
+      ? commandes.find((commande: any) => commande.id === modalCommandeId) || null
+      : null
+
+  const modalForm = modalCommande ? formByCommande[modalCommande.id] : null
+  const modalCurrentRow = modalCommande ? getCurrentRow(modalCommande.id) : null
+  const modalInitialTicket = modalCommande ? getInitialTicket(modalCommande.id) : null
+
+  const hasApprovedFlow =
+    !!modalCurrentRow &&
+    ['en_attente_signature', 'cheque_signe', 'livre_a_equipe', 'traitee'].includes(modalCurrentRow.statut_ticket)
 
   return (
     <Layout>
-      <div style={{ padding: '20px' }}>
+      <div style={{ padding: '16px 18px 20px', fontSize: '14px' }}>
+        {modalCommande && modalForm && (
+          <div
+            onClick={closeModal}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(10, 15, 22, 0.72)',
+              zIndex: 1000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '18px',
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: '1120px',
+                maxWidth: '96vw',
+                maxHeight: '92vh',
+                overflow: 'auto',
+                background: '#ffffff',
+                borderRadius: '16px',
+                border: '1px solid #d9e0e7',
+                boxShadow: '0 30px 80px rgba(10, 16, 28, 0.24)',
+              }}
+            >
+              <div
+                style={{
+                  padding: '18px 20px',
+                  background: 'linear-gradient(135deg, #182434 0%, #1f2d40 55%, #2a5ea8 100%)',
+                  color: '#fff',
+                }}
+              >
+                <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 0.7fr 0.9fr auto', gap: '16px', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '11px', opacity: 0.82, marginBottom: '4px', fontWeight: 700 }}>
+                      GESTION DU TICKET
+                    </div>
+                    <div style={{ fontSize: '18px', fontWeight: 800 }}>{modalCommande.titre}</div>
+                    <div style={{ fontSize: '11px', opacity: 0.86, marginTop: '3px' }}>
+                      {modalCommande.fournisseur_nom || '-'} • {modalCommande.type_paiement || '-'}
+                    </div>
+                  </div>
 
-        {/* HEADER */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <div>
-            <h1 style={{ fontSize: '18px', fontWeight: '700', color: '#1a3a6b' }}>Demandes des chèques</h1>
-            <p style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>Suivi des demandes de chèques</p>
-          </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <ImportExcel
-              onImport={handleImport}
-              columns={[
-                { key: 'titre', label: 'Titre' },
-                { key: 'montant', label: 'Montant' },
-                { key: 'date_souhaitee_signature', label: 'Date souhaitée signature' },
-                { key: 'categorie', label: 'Catégorie' },
-                { key: 'etat_signature', label: 'État signature' },
-                { key: 'etat_livraison', label: 'État livraison' },
-              ]}
-            />
-            <button onClick={() => setShowForm(!showForm)} style={{ padding: '8px 16px', background: '#0099cc', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>+ Ajouter NV</button>
-          </div>
-        </div>
+                  <div>
+                    <div style={{ fontSize: '10px', opacity: 0.75, marginBottom: '3px' }}>Montant</div>
+                    <div style={{ fontSize: '16px', fontWeight: 800 }}>{fmtDh(modalForm.montant)} DH</div>
+                  </div>
 
-        {success && <div style={{ background: '#e8f8ef', border: '1px solid #a8d5b5', borderRadius: '6px', padding: '12px 16px', fontSize: '13px', color: '#1a7a40', marginBottom: '16px' }}>✓ Demande créée avec succès !</div>}
-        {error && <div style={{ background: '#fdeaea', border: '1px solid #f5c6c6', borderRadius: '6px', padding: '12px 16px', fontSize: '13px', color: '#c0392b', marginBottom: '16px' }}>{error}</div>}
+                  <div>
+                    <div style={{ fontSize: '10px', opacity: 0.75, marginBottom: '3px' }}>Etat du cheque</div>
+                    <div style={{ fontSize: '12px', fontWeight: 800 }}>
+                      {(modalCurrentRow || modalInitialTicket) ? getTicketStatusMeta((modalCurrentRow || modalInitialTicket)?.statut_ticket).label : 'Nouvelle commande'}
+                    </div>
+                  </div>
 
-        {/* ─── KPI TOTAUX DYNAMIQUES ─── */}
-        <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
-          <div style={{ background: '#fff', borderRadius: '8px', padding: '14px 18px', border: '1px solid #e8eaed', borderTop: '3px solid #1a3a6b', minWidth: '160px' }}>
-            <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Total toutes demandes</div>
-            <div style={{ fontSize: '20px', fontWeight: '700', color: '#1a3a6b' }}>{totalTout.toLocaleString('fr-FR')} DH</div>
-            <div style={{ fontSize: '10px', color: '#aaa', marginTop: '2px' }}>{demandes.length} demande{demandes.length > 1 ? 's' : ''}</div>
-          </div>
-          <div style={{ background: '#fff', borderRadius: '8px', padding: '14px 18px', border: '1px solid #e8eaed', borderTop: '3px solid #1a7a40', minWidth: '160px' }}>
-            <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Total signées</div>
-            <div style={{ fontSize: '20px', fontWeight: '700', color: '#1a7a40' }}>{totalSigne.toLocaleString('fr-FR')} DH</div>
-            <div style={{ fontSize: '10px', color: '#aaa', marginTop: '2px' }}>{countSigne} demande{countSigne > 1 ? 's' : ''}</div>
-          </div>
-          <div style={{ background: '#fff', borderRadius: '8px', padding: '14px 18px', border: '1px solid #e8eaed', borderTop: '3px solid #0099cc', minWidth: '160px' }}>
-            <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Total livrées</div>
-            <div style={{ fontSize: '20px', fontWeight: '700', color: '#0099cc' }}>{totalLivre.toLocaleString('fr-FR')} DH</div>
-            <div style={{ fontSize: '10px', color: '#aaa', marginTop: '2px' }}>{countLivre} demande{countLivre > 1 ? 's' : ''}</div>
-          </div>
-          <div style={{ background: '#fff', borderRadius: '8px', padding: '14px 18px', border: '1px solid #e8eaed', borderTop: '3px solid #e65100', minWidth: '160px' }}>
-            <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Total en cours</div>
-            <div style={{ fontSize: '20px', fontWeight: '700', color: '#e65100' }}>{totalEnCours.toLocaleString('fr-FR')} DH</div>
-            <div style={{ fontSize: '10px', color: '#aaa', marginTop: '2px' }}>{countEnCours} demande{countEnCours > 1 ? 's' : ''}</div>
-          </div>
-        </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <button type="button" onClick={closeModal} style={compactButton('soft')}>
+                      Fermer
+                    </button>
+                  </div>
+                </div>
+              </div>
 
-        {/* ─── COMMANDES VALIDÉES ─── */}
-        {commandes.length > 0 && (
-          <div style={{ marginBottom: '24px' }}>
-            <div style={{ fontSize: '13px', fontWeight: '600', color: '#1a3a6b', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ background: '#e8f8ef', color: '#1a7a40', padding: '3px 10px', borderRadius: '4px', fontSize: '11px' }}>✓ Direction OK + Finance OK</span>
-              Commandes validées ({commandes.length})
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {commandes.map(commande => {
-                const isExpanded = expandedCommande === commande.id
-                return (
-                  <div key={commande.id} style={{ border: '1px solid #e8eaed', borderRadius: '8px', overflow: 'hidden', background: '#fff' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: '#f8f9fa' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <span style={{ fontSize: '15px', fontWeight: '700', color: '#1a3a6b' }}>{commande.titre}</span>
-                        {commande.montant && <span style={{ fontSize: '13px', fontWeight: '600', color: '#0099cc' }}>{Number(commande.montant).toLocaleString('fr-FR')} DH</span>}
-                        {commande.fournisseur_nom && commande.fournisseur_nom !== '—' && <span style={{ fontSize: '11px', color: '#888', background: '#e8eaed', padding: '2px 8px', borderRadius: '4px' }}>{commande.fournisseur_nom}</span>}
+              <div style={{ padding: '16px' }}>
+                <div style={{ ...cardStyle, padding: '14px', marginBottom: '14px', background: '#fafbfc' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '12px' }}>
+                    <div>
+                      <div style={{ fontSize: '10px', color: '#9aa7b4', marginBottom: '4px' }}>Titre</div>
+                      <div style={{ fontSize: '12px', color: '#1f2937', fontWeight: 600 }}>{modalCommande.titre || '-'}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10px', color: '#9aa7b4', marginBottom: '4px' }}>Fournisseur</div>
+                      <div style={{ fontSize: '12px', color: '#1f2937' }}>{modalCommande.fournisseur_nom || '-'}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10px', color: '#9aa7b4', marginBottom: '4px' }}>Montant</div>
+                      <div style={{ fontSize: '12px', color: '#1f2937' }}>{modalCommande.montant ? `${fmtDh(modalCommande.montant)} DH` : '-'}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10px', color: '#9aa7b4', marginBottom: '4px' }}>Type de paiement</div>
+                      <div style={{ fontSize: '12px', color: '#1f2937' }}>{modalCommande.type_paiement || '-'}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10px', color: '#9aa7b4', marginBottom: '4px' }}>Document de commande</div>
+                      {modalCommande.doc_url ? (
+                        <a href={modalCommande.doc_url} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: '#2a5ea8', fontWeight: 700, textDecoration: 'none' }}>
+                          Voir le document
+                        </a>
+                      ) : (
+                        <div style={{ fontSize: '12px', color: '#9aa7b4' }}>Aucun</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {!hasApprovedFlow ? (
+                  <div style={{ ...cardStyle, padding: '18px' }}>
+                    <div style={{ fontSize: '15px', fontWeight: '700', color: '#1d2836', marginBottom: '4px' }}>
+                      {modalCurrentRow ? 'Validation de la demande de cheque' : 'Demande de cheque'}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '14px' }}>
+                      Demande initiale liee a la commande
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.15fr 0.85fr', gap: '16px' }}>
+                      <div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '11px' }}>
+                          <div>
+                            <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Titre</label>
+                            <input style={inputStyle} value={modalForm.titre} disabled />
+                          </div>
+
+                          <div>
+                            <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Fournisseur</label>
+                            <input style={inputStyle} value={modalCommande.fournisseur_nom || ''} disabled />
+                          </div>
+
+                          <div>
+                            <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Type de paiement</label>
+                            <input style={inputStyle} value={modalForm.type_paiement || ''} disabled />
+                          </div>
+
+                          <div>
+                            <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Montant</label>
+                            <input style={inputStyle} value={modalForm.montant} disabled />
+                          </div>
+
+                          <div>
+                            <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Date souhaitee de signature</label>
+                            <input
+                              type="date"
+                              style={inputStyle}
+                              value={modalForm.date_souhaitee_signature || ''}
+                              disabled={!!modalCurrentRow && !isAdmin}
+                              onChange={e => setCommandeForm(modalCommande.id, 'date_souhaitee_signature', e.target.value)}
+                            />
+                          </div>
+
+                          <div>
+                            <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Piece jointe PO</label>
+                            {!modalCurrentRow && (
+                              <input
+                                type="file"
+                                style={inputStyle}
+                                onChange={e => setCommandeForm(modalCommande.id, 'po', e.target.files?.[0] || null)}
+                              />
+                            )}
+
+                            {modalCurrentRow && !isAdmin && (
+                              <div style={{ ...inputStyle, display: 'flex', alignItems: 'center', minHeight: '36px', color: '#64748b' }}>
+                                {modalCurrentRow.po_url ? 'PO joint' : 'Aucune piece jointe'}
+                              </div>
+                            )}
+
+                            {modalCurrentRow && isAdmin && (
+                              <>
+                                <input
+                                  type="file"
+                                  style={inputStyle}
+                                  onChange={e => setCommandeForm(modalCommande.id, 'po', e.target.files?.[0] || null)}
+                                />
+                                {modalCurrentRow.po_url && (
+                                  <a
+                                    href={modalCurrentRow.po_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    style={{ display: 'inline-block', marginTop: '6px', fontSize: '11px', color: '#2a5ea8', fontWeight: 700, textDecoration: 'none' }}
+                                  >
+                                    Voir la piece jointe actuelle
+                                  </a>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <button onClick={() => setExpandedCommande(isExpanded ? null : commande.id)} style={{ padding: '6px 14px', background: '#fff', color: '#1a3a6b', border: '1px solid #1a3a6b', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>
-                          {isExpanded ? 'Masquer' : 'View details'}
-                        </button>
-                        <button onClick={() => navigate('/commandes')} style={{ padding: '6px 14px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>
-                          + Add new cheque
-                        </button>
+
+                      <div style={{ background: '#f8fafc', border: '1px solid #e5eaf0', borderRadius: '14px', padding: '14px' }}>
+                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#1d2836', marginBottom: '10px' }}>
+                          Etat du ticket
+                        </div>
+
+                        <div
+                          style={{
+                            display: 'inline-block',
+                            padding: '6px 10px',
+                            borderRadius: '999px',
+                            background: getTicketStatusMeta(modalCurrentRow?.statut_ticket).bg,
+                            color: getTicketStatusMeta(modalCurrentRow?.statut_ticket).color,
+                            border: `1px solid ${getTicketStatusMeta(modalCurrentRow?.statut_ticket).border}`,
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            marginBottom: '10px',
+                          }}
+                        >
+                          {getTicketStatusMeta(modalCurrentRow?.statut_ticket).label}
+                        </div>
+
+                        <div style={{ fontSize: '11px', color: '#6b7280', lineHeight: 1.7 }}>
+                          {!modalCurrentRow && 'La commande est prete. Le service achat peut envoyer la demande de cheque.'}
+                          {modalCurrentRow?.statut_ticket === 'en_validation' && 'La demande est en attente de validation par l administration.'}
+                          {modalCurrentRow?.statut_ticket === 'reporte' && 'La demande a ete reportee. Elle peut etre approuvee plus tard.'}
+                        </div>
                       </div>
                     </div>
-                    {isExpanded && (
-                      <div style={{ padding: '16px 20px', borderTop: '1px solid #e8eaed' }}>
-                        {/* Afficher détails de commande (Page gestion de commande) */}
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                          <thead>
-                            <tr style={{ background: '#f8f9fa' }}>
-                              {['ID', 'Titre', 'Fournisseur', 'Montant', 'Échéance', 'Mode de livraison', 'Type de paiement', 'Demande Achat (Doc)', 'Validation Direction', 'Validation Finance', 'Actions'].map(h => (
-                                <th key={h} style={{ padding: '8px 12px', textAlign: 'left', color: '#1a3a6b', fontWeight: '600', borderBottom: '2px solid #e8eaed', fontSize: '11px', whiteSpace: 'nowrap' }}>{h}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr style={{ borderBottom: '1px solid #f5f5f5' }}>
-                              <td style={{ padding: '8px 12px', color: '#aaa' }}>{commande.id}</td>
-                              <td style={{ padding: '8px 12px', fontWeight: '500', color: '#2c2c2c' }}>{commande.titre}</td>
-                              <td style={{ padding: '8px 12px', color: '#555' }}>{commande.fournisseur_nom || '—'}</td>
-                              <td style={{ padding: '8px 12px', fontWeight: '600', color: '#1a3a6b' }}>{commande.montant ? `${Number(commande.montant).toLocaleString('fr-FR')} DH` : '—'}</td>
-                              <td style={{ padding: '8px 12px', color: '#555' }}>{commande.echeance || '—'}</td>
-                              <td style={{ padding: '8px 12px', color: '#555' }}>{commande.mode_livraison || '—'}</td>
-                              <td style={{ padding: '8px 12px', color: '#555' }}>{commande.type_paiement || '—'}</td>
-                              <td style={{ padding: '8px 12px' }}>
-                                {commande.doc_url
-                                  ? <a href={commande.doc_url} target="_blank" rel="noreferrer" style={{ padding: '3px 8px', background: '#e8f4fb', color: '#0099cc', border: '1px solid #b3d9f0', borderRadius: '4px', fontSize: '11px', textDecoration: 'none' }}>📄 Voir</a>
-                                  : <span style={{ color: '#aaa', fontSize: '11px' }}>—</span>}
-                              </td>
-                              <td style={{ padding: '8px 12px' }}>
-                                {(() => { const s = choixStyle(commande.validation_direction); return <span style={{ background: s.bg, color: s.color, padding: '3px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: '600' }}>{CHOIX_LABELS[commande.validation_direction] || commande.validation_direction}</span> })()}
-                              </td>
-                              <td style={{ padding: '8px 12px' }}>
-                                {(() => { const s = choixStyle(commande.validation_finance); return <span style={{ background: s.bg, color: s.color, padding: '3px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: '600' }}>{CHOIX_LABELS[commande.validation_finance] || commande.validation_finance}</span> })()}
-                              </td>
-                              <td style={{ padding: '8px 12px' }}>
-                                <button onClick={() => navigate('/commandes')} style={{ padding: '4px 10px', background: '#e8f4fb', color: '#0099cc', border: '1px solid #b3d9f0', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>Gérer</button>
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
 
-        {/* ─── FORMULAIRE ─── */}
-        {showForm && (
-          <div style={{ background: '#fff', borderRadius: '8px', padding: '24px', border: '1px solid #e8eaed', marginBottom: '20px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#1a3a6b', marginBottom: '16px' }}>Nouvelle demande de chèque</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <div>
-                <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Titre *</label>
-                <input style={inputStyle} value={form.titre} onChange={e => setForm(p => ({ ...p, titre: e.target.value }))} placeholder="Ex: Paiement loyer" />
-              </div>
-              <div>
-                <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Fournisseur</label>
-                <select style={inputStyle} value={form.fournisseur} onChange={e => { if (e.target.value === '__add_fourn__') { setShowAddFourn(true) } else { setForm(p => ({ ...p, fournisseur: e.target.value })); setShowAddFourn(false) } }}>
-                  <option value="">— Aucun —</option>
-                  {fournisseurs.map(f => <option key={f.id} value={f.id}>{f.nom}</option>)}
-                  <option value="__add_fourn__">➕ Add New</option>
-                </select>
-                {showAddFourn && (
-                  <div style={addNewInputStyle}>
-                    <input style={{ ...inputStyle, flex: 1 }} value={newFourn} onChange={e => setNewFourn(e.target.value)} placeholder="Nom du fournisseur..." onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddFournisseur())} />
-                    <button type="button" onClick={handleAddFournisseur} style={{ padding: '8px 12px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>OK</button>
-                    <button type="button" onClick={() => { setShowAddFourn(false); setNewFourn('') }} style={{ padding: '8px 12px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>✕</button>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginTop: '14px', flexWrap: 'wrap' }}>
+                      <div>
+                        {modalCurrentRow?.id && isAdmin && (
+                          <button type="button" onClick={() => deleteCurrent(modalCommande)} style={compactButton('danger', submitting)}>
+                            Supprimer le ticket
+                          </button>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        {!modalCurrentRow && isAchat && (
+                          <button type="button" onClick={() => saveInitialRequest(modalCommande)} style={compactButton('violet', submitting)}>
+                            Demander le cheque
+                          </button>
+                        )}
+
+                        {modalCurrentRow && isAdmin && (
+                          <>
+                            <button type="button" onClick={() => saveTicket(modalCommande)} style={compactButton('soft', submitting)}>
+                              Modifier
+                            </button>
+                            <button type="button" onClick={() => updateTicketStatus(modalCommande, 'reporte')} style={compactButton('danger', submitting)}>
+                              Desapprouver
+                            </button>
+                            <button type="button" onClick={() => updateTicketStatus(modalCommande, 'en_attente_signature')} style={compactButton('green', submitting)}>
+                              Approuver
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ ...cardStyle, padding: '18px' }}>
+                    <div style={{ fontSize: '15px', fontWeight: '700', color: '#1d2836', marginBottom: '4px' }}>
+                      Gestion du cheque
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '14px' }}>
+                      Suivi du cheque apres approbation
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '16px' }}>
+                      <div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '11px' }}>
+                          <div>
+                            <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Titre</label>
+                            <input style={inputStyle} value={modalForm.titre} disabled />
+                          </div>
+
+                          <div>
+                            <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Montant</label>
+                            <input style={inputStyle} value={modalForm.montant} disabled />
+                          </div>
+
+                          <div>
+                            <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Type de paiement</label>
+                            <input style={inputStyle} value={modalForm.type_paiement || ''} disabled />
+                          </div>
+
+                          <div>
+                            <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Date d echeance</label>
+                            <input
+                              type="date"
+                              style={inputStyle}
+                              value={modalForm.date_echeance || ''}
+                              disabled={!isAdmin}
+                              onChange={e => setCommandeForm(modalCommande.id, 'date_echeance', e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ background: '#f8fafc', border: '1px solid #e5eaf0', borderRadius: '14px', padding: '14px' }}>
+                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#1d2836', marginBottom: '10px' }}>
+                          Suivi du cheque
+                        </div>
+
+                        <div style={{ display: 'grid', gap: '8px' }}>
+                          <div
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: '1fr auto',
+                              gap: '8px',
+                              alignItems: 'center',
+                              padding: '8px 10px',
+                              background: '#fff',
+                              border: '1px solid #e6edf5',
+                              borderRadius: '10px',
+                            }}
+                          >
+                            <span style={{ fontSize: '12px', color: '#334155', fontWeight: 600 }}>Etat de signature</span>
+                            <select
+                              style={{ ...inputStyle, width: '150px', padding: '6px 8px', fontSize: '11px' }}
+                              value={modalForm.etat_signature}
+                              disabled={!isAdmin}
+                              onChange={e => {
+                                const value = e.target.value
+                                setCommandeForm(modalCommande.id, 'etat_signature', value)
+
+                                if (value === 'traitee') {
+                                  setCommandeForm(modalCommande.id, 'statut_ticket', 'cheque_signe')
+                                } else {
+                                  setCommandeForm(modalCommande.id, 'statut_ticket', 'en_attente_signature')
+                                }
+                              }}
+                            >
+                              <option value="en_cours">En cours</option>
+                              <option value="traitee">Traitee</option>
+                            </select>
+                          </div>
+
+                          <div
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: '1fr auto',
+                              gap: '8px',
+                              alignItems: 'center',
+                              padding: '8px 10px',
+                              background: '#fff',
+                              border: '1px solid #e6edf5',
+                              borderRadius: '10px',
+                            }}
+                          >
+                            <span style={{ fontSize: '12px', color: '#334155', fontWeight: 600 }}>Etat de livraison a l equipe</span>
+                            <select
+                              style={{ ...inputStyle, width: '150px', padding: '6px 8px', fontSize: '11px' }}
+                              value={modalForm.livre_a_equipe}
+                              disabled={!isAdmin}
+                              onChange={e => {
+                                const value = e.target.value
+                                setCommandeForm(modalCommande.id, 'livre_a_equipe', value)
+
+                                if (value === 'traitee') {
+                                  setCommandeForm(modalCommande.id, 'statut_ticket', 'livre_a_equipe')
+                                }
+                              }}
+                            >
+                              <option value="en_cours">En cours</option>
+                              <option value="traitee">Traitee</option>
+                            </select>
+                          </div>
+
+                          <div
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: '1fr auto',
+                              gap: '8px',
+                              alignItems: 'center',
+                              padding: '8px 10px',
+                              background: '#fff',
+                              border: '1px solid #e6edf5',
+                              borderRadius: '10px',
+                            }}
+                          >
+                            <span style={{ fontSize: '12px', color: '#334155', fontWeight: 600 }}>Etat de livraison au transport</span>
+                            <select
+                              style={{ ...inputStyle, width: '150px', padding: '6px 8px', fontSize: '11px' }}
+                              value={modalForm.livre_au_transport}
+                              disabled={!isAdmin}
+                              onChange={e => {
+                                const value = e.target.value
+                                setCommandeForm(modalCommande.id, 'livre_au_transport', value)
+
+                                if (value === 'traitee') {
+                                  setCommandeForm(modalCommande.id, 'etat_livraison', 'traitee')
+                                  setCommandeForm(modalCommande.id, 'statut_ticket', 'traitee')
+                                }
+                              }}
+                            >
+                              <option value="en_cours">En cours</option>
+                              <option value="traitee">Traitee</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginTop: '14px', flexWrap: 'wrap' }}>
+                      <div>
+                        {isAdmin && modalCurrentRow?.id && (
+                          <button type="button" onClick={() => deleteCurrent(modalCommande)} style={compactButton('danger', submitting)}>
+                            Supprimer le ticket
+                          </button>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        {isAdmin && (
+                          <button type="button" onClick={() => saveTicket(modalCommande)} style={compactButton('dark', submitting)}>
+                            Enregistrer
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
-              <div>
-                <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Montant (DH) *</label>
-                <input style={inputStyle} type="number" value={form.montant} onChange={e => setForm(p => ({ ...p, montant: e.target.value }))} placeholder="0.00" />
-              </div>
-              <div>
-                <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Date souhaitée de signature *</label>
-                <input style={inputStyle} type="date" value={form.date_souhaitee_signature} onChange={e => setForm(p => ({ ...p, date_souhaitee_signature: e.target.value }))} />
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-              <button onClick={handleSubmit} style={{ padding: '8px 20px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Enregistrer</button>
-              <button onClick={() => { setShowForm(false); setError(''); setShowAddFourn(false) }} style={{ padding: '8px 20px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Annuler</button>
             </div>
           </div>
         )}
 
-        {/* ─── TABLEAU ─── */}
-        <div style={{ fontSize: '13px', fontWeight: '600', color: '#1a3a6b', marginBottom: '10px' }}>
-          Toutes les demandes de chèques
+        <div style={{ marginBottom: '14px' }}>
+          <div style={{ ...cardStyle, padding: '18px 20px 16px', background: 'linear-gradient(135deg, #ffffff 0%, #fbfcfd 100%)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '14px', flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontSize: '20px', fontWeight: '800', color: '#1d2836', marginBottom: '6px' }}>
+                  Demandes de cheques
+                </div>
+                <div style={{ fontSize: '12px', color: '#6b7280', maxWidth: '760px' }}>
+                  Suivi compact du circuit achat, validation et traitement des cheques lies aux commandes validees.
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {loading ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: '#888' }}>Chargement...</div>
-        ) : (
-          <SortableTable
-            emptyMessage="Aucune demande"
-            columns={[
-              { key: 'id', label: 'ID', render: (_v: any, row: any) => <span style={{ color: '#aaa' }}>{row.id}</span> },
-              { key: 'titre', label: 'Titre', render: (_v: any, row: any) => <span style={{ fontWeight: '500', color: '#2c2c2c' }}>{row.titre}</span> },
-              { key: 'fournisseur_nom', label: 'Fournisseur', render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.fournisseur_nom}</span> },
-              {
-                key: 'montant_fmt', label: 'Montant', sortable: false,
-                render: (_v: any, row: any) => editingMontant === row.id ? (
-                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                    <input type="number" value={montantInput} onChange={e => setMontantInput(e.target.value)}
-                      style={{ ...inputStyle, width: '100px', padding: '4px 8px' }}
-                      onKeyDown={e => { if (e.key === 'Enter') { updateField(row.id, { montant: parseFloat(montantInput) }); setEditingMontant(null) } }}
-                    />
-                    <button onClick={() => { updateField(row.id, { montant: parseFloat(montantInput) }); setEditingMontant(null) }} style={{ padding: '4px 8px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✓</button>
-                    <button onClick={() => setEditingMontant(null)} style={{ padding: '4px 8px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✕</button>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontWeight: '600', color: '#1a3a6b' }}>{row.montant_fmt}</span>
-                    <button onClick={() => { setEditingMontant(row.id); setMontantInput(String(row.montant)) }}
-                      style={{ padding: '2px 6px', background: '#e8f4fb', color: '#0099cc', border: '1px solid #b3d9f0', borderRadius: '3px', fontSize: '10px', cursor: 'pointer' }}>✏️</button>
-                  </div>
-                )
-              },
-              {
-                key: 'date_signature_fmt', label: 'Date souhaitée signature', sortable: false,
-                render: (_v: any, row: any) => editingDate === row.id ? (
-                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                    <input type="date" value={dateInput} onChange={e => setDateInput(e.target.value)} style={{ ...inputStyle, width: '140px', padding: '4px 8px' }} />
-                    <button onClick={async () => { await updateField(row.id, { date_souhaitee_signature: dateInput }); setEditingDate(null) }} style={{ padding: '4px 8px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✓</button>
-                    <button onClick={() => setEditingDate(null)} style={{ padding: '4px 8px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✕</button>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ color: '#555' }}>{row.date_signature_fmt}</span>
-                    <button onClick={() => { setEditingDate(row.id); setDateInput(row.date_souhaitee_signature || '') }} style={{ padding: '2px 6px', background: '#e8f4fb', color: '#0099cc', border: '1px solid #b3d9f0', borderRadius: '3px', fontSize: '10px', cursor: 'pointer' }}>✏️</button>
-                  </div>
-                )
-              },
-              { key: 'categorie', label: 'Catégorie', render: (_v: any, row: any) => <span style={{ background: '#e8f4fb', color: '#0099cc', padding: '3px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>{row.categorie}</span> },
-              { key: 'etat_signature_label', label: 'État signature', render: (_v: any, row: any) => (
-                <select value={row.etat_signature} onChange={e => updateField(row.id, { etat_signature: e.target.value })}
-                  style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', border: '1px solid #e0e0e0', cursor: 'pointer', background: row.etat_signature === 'signe' ? '#e8f8ef' : '#fff3e0', color: row.etat_signature === 'signe' ? '#1a7a40' : '#e65100' }}>
-                  <option value="en_cours">En cours</option>
-                  <option value="signe">Signé</option>
-                </select>
-              )},
-              { key: 'etat_livraison_label', label: 'État livraison', render: (_v: any, row: any) => (
-                <select value={row.etat_livraison} onChange={e => updateField(row.id, { etat_livraison: e.target.value })}
-                  style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', border: '1px solid #e0e0e0', cursor: 'pointer', background: row.etat_livraison === 'livre' ? '#e8f8ef' : '#fff3e0', color: row.etat_livraison === 'livre' ? '#1a7a40' : '#e65100' }}>
-                  <option value="en_cours">En cours</option>
-                  <option value="livre">Livré</option>
-                </select>
-              )},
-              {
-                key: 'date_echeance_fmt', label: 'Date échéance', sortable: false,
-                render: (_v: any, row: any) => editingEcheance === row.id ? (
-                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                    <input type="date" value={echeanceInput} onChange={e => setEcheanceInput(e.target.value)} style={{ ...inputStyle, width: '140px', padding: '4px 8px' }} />
-                    <button onClick={async () => { await updateField(row.id, { date_echeance: echeanceInput }); setEditingEcheance(null) }} style={{ padding: '4px 8px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✓</button>
-                    <button onClick={() => setEditingEcheance(null)} style={{ padding: '4px 8px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>✕</button>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ color: '#555' }}>{row.date_echeance_fmt}</span>
-                    <button onClick={() => { setEditingEcheance(row.id); setEcheanceInput(row.date_echeance || '') }} style={{ padding: '2px 6px', background: '#e8f4fb', color: '#0099cc', border: '1px solid #b3d9f0', borderRadius: '3px', fontSize: '10px', cursor: 'pointer' }}>✏️</button>
-                  </div>
-                )
-              },
-              {
-                key: 'type_paiement', label: 'Type de paiement', sortable: false,
-                render: (_v: any, row: any) => (
-                  <div>
-                    <select value={row.type_paiement || ''} onChange={e => { if (e.target.value === '__add_type__') { setShowAddType(true) } else { updateField(row.id, { type_paiement: e.target.value }) } }}
-                      style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', border: '1px solid #e0e0e0', cursor: 'pointer', minWidth: '120px' }}>
-                      <option value="">— Choisir —</option>
-                      {typesPaiement.map(t => <option key={t} value={t}>{t}</option>)}
-                      <option value="__add_type__">➕ Add New</option>
-                    </select>
-                    {showAddType && (
-                      <div style={addNewInputStyle}>
-                        <input style={{ ...inputStyle, flex: 1 }} value={newType} onChange={e => setNewType(e.target.value)} placeholder="Nouveau type..." onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddType(row.id))} />
-                        <button type="button" onClick={() => handleAddType(row.id)} style={{ padding: '6px 10px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>OK</button>
-                        <button type="button" onClick={() => { setShowAddType(false); setNewType('') }} style={{ padding: '6px 10px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>✕</button>
+        {(success || error) && (
+          <div style={{ marginBottom: '12px' }}>
+            {success && (
+              <div style={{ ...cardStyle, padding: '10px 12px', background: '#e9f7f0', borderColor: '#ccebdc', color: '#1f8a57', fontSize: '12px', fontWeight: 600 }}>
+                {success}
+              </div>
+            )}
+            {error && (
+              <div style={{ ...cardStyle, padding: '10px 12px', background: '#fdeceb', borderColor: '#f4cfcf', color: '#c93128', fontSize: '12px', fontWeight: 600 }}>
+                {error}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
+          <button style={compactButton(activeSection === 'dashboard' ? 'dark' : 'soft')} onClick={() => setActiveSection('dashboard')}>
+            Tableau de bord
+          </button>
+          <button style={compactButton(activeSection === 'gestion' ? 'dark' : 'soft')} onClick={() => setActiveSection('gestion')}>
+            Gestion des cheques
+          </button>
+        </div>
+
+        {activeSection === 'dashboard' && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '10px', marginBottom: '14px' }}>
+            <div style={{ ...cardStyle, padding: '14px 14px 13px', borderTop: '3px solid #1d2836' }}>
+              <div style={{ fontSize: '10.5px', color: '#6b7280', marginBottom: '5px' }}>Commandes valides</div>
+              <div style={{ fontSize: '17px', fontWeight: '800', color: '#1d2836' }}>{stats.commandes}</div>
+            </div>
+
+            <div style={{ ...cardStyle, padding: '14px 14px 13px', borderTop: '3px solid #2a5ea8' }}>
+              <div style={{ fontSize: '10.5px', color: '#6b7280', marginBottom: '5px' }}>Tickets</div>
+              <div style={{ fontSize: '17px', fontWeight: '800', color: '#2a5ea8' }}>{stats.tickets}</div>
+            </div>
+
+            <div style={{ ...cardStyle, padding: '14px 14px 13px', borderTop: '3px solid #d08b19' }}>
+              <div style={{ fontSize: '10.5px', color: '#6b7280', marginBottom: '5px' }}>En validation</div>
+              <div style={{ fontSize: '17px', fontWeight: '800', color: '#d08b19' }}>{stats.validations}</div>
+            </div>
+
+            <div style={{ ...cardStyle, padding: '14px 14px 13px', borderTop: '3px solid #6b21a8' }}>
+              <div style={{ fontSize: '10.5px', color: '#6b7280', marginBottom: '5px' }}>En attente de signature</div>
+              <div style={{ fontSize: '17px', fontWeight: '800', color: '#6b21a8' }}>{stats.signatures}</div>
+            </div>
+
+            <div style={{ ...cardStyle, padding: '14px 14px 13px', borderTop: '3px solid #1f8a57' }}>
+              <div style={{ fontSize: '10.5px', color: '#6b7280', marginBottom: '5px' }}>Traites</div>
+              <div style={{ fontSize: '17px', fontWeight: '800', color: '#1f8a57' }}>{stats.traites}</div>
+            </div>
+          </div>
+        )}
+
+        {activeSection === 'gestion' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {commandes.length === 0 && (
+              <div style={{ ...cardStyle, padding: '24px', color: '#888', textAlign: 'center' }}>
+                Aucune commande validee disponible.
+              </div>
+            )}
+
+            {commandes.map((commande: any) => {
+              const rows = getCommandeRows(commande.id)
+              const initialTicket = getInitialTicket(commande.id)
+              const ticketMeta = getTicketStatusMeta(initialTicket?.statut_ticket || null)
+              const showDetails = !!detailsOpen[commande.id]
+
+              const dates = rows
+                .filter((row: any) => !row.is_ticket_initial)
+                .map((row: any) => row.date_echeance || row.date_souhaitee_signature || '-')
+                .filter(Boolean)
+                .join(' / ')
+
+              const hasApprovedFlowCard =
+                !!initialTicket &&
+                ['en_attente_signature', 'cheque_signe', 'livre_a_equipe', 'traitee'].includes(initialTicket.statut_ticket)
+
+              return (
+                <div key={commande.id} style={{ ...cardStyle, overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      padding: '16px 18px',
+                      display: 'grid',
+                      gridTemplateColumns: '1.65fr 0.85fr 0.95fr 0.95fr auto',
+                      gap: '14px',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: '17px', fontWeight: '800', color: '#1d2836', marginBottom: '6px' }}>
+                        {commande.titre}
                       </div>
-                    )}
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <span style={{ fontSize: '11px', color: '#6b7280' }}>{commande.fournisseur_nom || 'Sans fournisseur'}</span>
+                        <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#c7d0db', display: 'inline-block' }} />
+                        <span style={{ fontSize: '11px', color: '#6b7280' }}>{commande.type_paiement || 'Paiement non precise'}</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '4px' }}>Montant</div>
+                      <div style={{ fontSize: '20px', fontWeight: '800', color: '#2a5ea8' }}>
+                        {commande.montant ? `${fmtDh(commande.montant)} DH` : '0 DH'}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '4px' }}>Date d echeance du cheque</div>
+                      <div style={{ fontSize: '12px', color: '#1f2937', fontWeight: 700 }}>
+                        {dates || '-'}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '4px' }}>Etat du cheque</div>
+                      <div
+                        style={{
+                          display: 'inline-block',
+                          padding: '5px 10px',
+                          borderRadius: '999px',
+                          background: ticketMeta.bg,
+                          color: ticketMeta.color,
+                          border: `1px solid ${ticketMeta.border}`,
+                          fontSize: '11px',
+                          fontWeight: 700,
+                        }}
+                      >
+                        {ticketMeta.label}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                      <button
+                        onClick={() => setDetailsOpen(prev => ({ ...prev, [commande.id]: !prev[commande.id] }))}
+                        style={compactButton('soft')}
+                      >
+                        {showDetails ? 'Masquer les details' : 'Voir les details'}
+                      </button>
+
+                      {!initialTicket && isAchat && (
+                        <button
+                          type="button"
+                          onClick={() => openInitialRequest(commande)}
+                          style={compactButton('violet')}
+                        >
+                          Demander le cheque
+                        </button>
+                      )}
+
+                      {initialTicket && isAdmin && !hasApprovedFlowCard && (
+                        <button
+                          type="button"
+                          onClick={() => openTicketModal(commande, rows.findIndex((row: any) => row.id === initialTicket.id))}
+                          style={compactButton('blue')}
+                        >
+                          Valider le cheque
+                        </button>
+                      )}
+
+                      {initialTicket && isAdmin && hasApprovedFlowCard && (
+                        <button
+                          type="button"
+                          onClick={() => openTicketModal(commande, rows.findIndex((row: any) => row.id === initialTicket.id))}
+                          style={compactButton('dark')}
+                        >
+                          Gerer le cheque
+                        </button>
+                      )}
+
+                      {initialTicket && isAchat && (
+                        <button
+                          type="button"
+                          onClick={() => openTicketModal(commande, rows.findIndex((row: any) => row.id === initialTicket.id))}
+                          style={compactButton('soft')}
+                        >
+                          Voir le ticket
+                        </button>
+                      )}
+                    </div>
                   </div>
-                )
-              },
-              { key: 'actions', label: 'Supprimer', sortable: false, render: (_v: any, row: any) => <button onClick={() => handleDelete(row.id)} style={{ padding: '4px 10px', background: '#fdeaea', color: '#c0392b', border: '1px solid #f5c6c6', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>🗑</button> },
-            ]}
-            data={tableData}
-          />
+
+                  {showDetails && (
+                    <div style={{ padding: '14px 18px', borderTop: '1px solid #e8eaed', background: '#fafbfd' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: '12px' }}>
+                        <div>
+                          <div style={{ fontSize: '10px', color: '#9aa7b4', marginBottom: '4px' }}>Titre</div>
+                          <div style={{ fontSize: '12px', color: '#1f2937', fontWeight: 600 }}>{commande.titre || '-'}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '10px', color: '#9aa7b4', marginBottom: '4px' }}>Fournisseur</div>
+                          <div style={{ fontSize: '12px', color: '#1f2937' }}>{commande.fournisseur_nom || '-'}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '10px', color: '#9aa7b4', marginBottom: '4px' }}>Montant</div>
+                          <div style={{ fontSize: '12px', color: '#1f2937' }}>{commande.montant ? `${fmtDh(commande.montant)} DH` : '-'}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '10px', color: '#9aa7b4', marginBottom: '4px' }}>Type de paiement</div>
+                          <div style={{ fontSize: '12px', color: '#1f2937' }}>{commande.type_paiement || '-'}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '10px', color: '#9aa7b4', marginBottom: '4px' }}>Document</div>
+                          {commande.doc_url ? (
+                            <a
+                              href={commande.doc_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{ fontSize: '12px', color: '#2a5ea8', fontWeight: 700, textDecoration: 'none' }}
+                            >
+                              Voir le document
+                            </a>
+                          ) : (
+                            <div style={{ fontSize: '12px', color: '#9aa7b4' }}>Aucun</div>
+                          )}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '10px', color: '#9aa7b4', marginBottom: '4px' }}>Nombre de tickets</div>
+                          <div style={{ fontSize: '12px', color: '#1f2937', fontWeight: 700 }}>{rows.length}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         )}
       </div>
     </Layout>

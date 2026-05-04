@@ -1,385 +1,553 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Layout from '../components/Layout'
 import api from '../api/axios'
 import SortableTable from '../components/SortableTable'
-import ImportExcel from '../components/ImportExcel'
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from 'recharts'
 
-const categoriesFixes: string[] = [
-  'Loyer', 'Électricité', 'Eau', 'Internet', 'Téléphone',
-  'Assurance', 'Salaires', 'Transport', 'Maintenance',
-  'Fournitures bureau', 'Autres',
+const cardStyle = {
+  background: '#ffffff',
+  borderRadius: '12px',
+  border: '1px solid #d9e0e7',
+  boxShadow: '0 12px 28px rgba(19, 29, 43, 0.05)',
+}
+
+const inputStyle = {
+  width: '100%',
+  padding: '8px 11px',
+  border: '1px solid #d9e0e7',
+  borderRadius: '9px',
+  fontSize: '12px',
+  outline: 'none',
+  background: '#fff',
+  color: '#1f2937',
+}
+
+const compactButton = (active: boolean) => ({
+  padding: '8px 14px',
+  borderRadius: '10px',
+  border: active ? '1px solid #1d2836' : '1px solid #d9e0e7',
+  cursor: 'pointer',
+  fontSize: '11px',
+  background: active ? '#1d2836' : '#fff',
+  color: active ? '#fff' : '#1d2836',
+  fontWeight: 700,
+})
+
+const stateButton = {
+  padding: '7px 12px',
+  borderRadius: '9px',
+  fontSize: '11px',
+  border: '1px solid #d9e0e7',
+  cursor: 'pointer',
+  background: '#fff',
+}
+
+const fmtDh = (value: any) =>
+  Number(value || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+const TYPE_OPTIONS = [
+  { value: 'traitee_par_banque', label: 'Traitee par banque' },
+  { value: 'traitee_par_caisse', label: 'Traitee par caisse' },
 ]
 
-const ChargesFixes = () => {
-  document.title = 'Charges fixes — Newiris'
+const formatDate = (value: string) => {
+  if (!value) return '-'
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return value
+  return d.toLocaleDateString('fr-FR')
+}
 
-  const [charges, setCharges] = useState<any[]>([])
-  const [services, setServices] = useState<any[]>([])
+const ChargesFixes = () => {
+  document.title = 'Charges fixes - NEWIRIS'
+
+  const [categories, setCategories] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [selectedService, setSelectedService] = useState<any | null>(null)
-  const [showCategories, setShowCategories] = useState(false)
-  const [categoriesConfig, setCategoriesConfig] = useState<{ categorie: string; jour_du_mois: number }[]>([])
-  const [showAddCategorie, setShowAddCategorie] = useState(false)
-  const [newCategorie, setNewCategorie] = useState({ categorie: '', jour_du_mois: '' })
-  const [form, setForm] = useState({ service: '', categorie: '', montant: '', date_debut: '', date_fin: '' })
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'categories'>('dashboard')
+
+  const [showCategoryForm, setShowCategoryForm] = useState(false)
+  const [success, setSuccess] = useState(false)
+  const [error, setError] = useState('')
+
+  const [categoryForm, setCategoryForm] = useState({
+    nom: '',
+    type_traitement: 'traitee_par_banque',
+    jour_du_mois: 3,
+    montant: '',
+    date_debut: '',
+    date_fin: '',
+  })
+
+  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null)
+  const [editingCategoryForm, setEditingCategoryForm] = useState({
+    nom: '',
+    type_traitement: 'traitee_par_banque',
+    jour_du_mois: '3',
+    montant: '',
+    date_debut: '',
+    date_fin: '',
+  })
 
   const fetchData = async () => {
+    setLoading(true)
     try {
-      const [chargesRes, servicesRes] = await Promise.all([
-        api.get('/charges-fixes/'),
-        api.get('/services/'),
-      ])
-      setCharges(chargesRes.data)
-      setServices(servicesRes.data)
-    } catch (err) { console.error(err) }
-    finally { setLoading(false) }
+      const categoriesRes = await api.get('/charges-fixes/categories/')
+      setCategories(Array.isArray(categoriesRes.data) ? categoriesRes.data : [])
+    } catch (err) {
+      console.error(err)
+      setError('Une erreur est survenue lors du chargement.')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => {
+    fetchData()
+  }, [])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const notifySuccess = () => {
+    setSuccess(true)
+    setError('')
+    setTimeout(() => setSuccess(false), 2500)
+  }
+
+  const handleCreateCategory = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      await api.post('/charges-fixes/', {
-        service: parseInt(form.service),
-        categorie: form.categorie,
-        montant: parseFloat(form.montant),
-        date: form.date_debut || null,
+      await api.post('/charges-fixes/categories/', {
+        nom: categoryForm.nom,
+        type_traitement: categoryForm.type_traitement,
+        jour_du_mois: Number(categoryForm.jour_du_mois),
+        montant: parseFloat(String(categoryForm.montant || '0')) || 0,
+        date_debut: categoryForm.date_debut || null,
+        date_fin: categoryForm.date_fin || null,
       })
-      setShowForm(false)
-      setForm({ service: '', categorie: '', montant: '', date_debut: '', date_fin: '' })
-      await fetchData()
-    } catch (err) { console.error(err) }
-  }
 
-  const handleDelete = async (id: number) => {
-    try { await api.delete(`/charges-fixes/${id}/`); await fetchData() } catch (err) { console.error(err) }
-  }
-
-  const handleImport = async (rows: any[]) => {
-    for (const row of rows) {
-      try {
-        const service = services.find(s => s.nom.toLowerCase() === String(row.service || '').toLowerCase())
-        await api.post('/charges-fixes/', {
-          service: service ? service.id : parseInt(String(row.service)) || services[0]?.id,
-          categorie: row.categorie || '',
-          montant: parseFloat(String(row.montant || '0').replace(',', '.')),
-          date: row.date || null,
-        })
-      } catch (err) { console.error(err) }
+      setCategoryForm({
+        nom: '',
+        type_traitement: 'traitee_par_banque',
+        jour_du_mois: 3,
+        montant: '',
+        date_debut: '',
+        date_fin: '',
+      })
+      setShowCategoryForm(false)
+      notifySuccess()
+      fetchData()
+    } catch (err) {
+      console.error(err)
+      setError('Creation de la categorie impossible.')
     }
-    setLoading(true)
-    await fetchData()
   }
 
-  const handleAddCategorie = () => {
-    if (!newCategorie.categorie || !newCategorie.jour_du_mois) return
-    setCategoriesConfig(prev => [...prev, {
-      categorie: newCategorie.categorie,
-      jour_du_mois: parseInt(newCategorie.jour_du_mois)
-    }])
-    setNewCategorie({ categorie: '', jour_du_mois: '' })
-    setShowAddCategorie(false)
-  }
-
-  const handleDeleteCategorie = (index: number) => {
-    setCategoriesConfig(prev => prev.filter((_, i) => i !== index))
-  }
-
-  const inputStyle = { width: '100%', padding: '8px 12px', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '13px', outline: 'none' }
-  const totalMontant = charges.reduce((sum, c) => sum + parseFloat(c.montant), 0)
-
-  const chargesService = selectedService
-    ? charges.filter(c => {
-        const serviceNom = typeof c.service === 'string' ? c.service : services.find(s => s.id === c.service)?.nom
-        return serviceNom === selectedService.nom
+  const handleUpdateCategory = async (id: number) => {
+    try {
+      await api.patch(`/charges-fixes/categories/${id}/`, {
+        nom: editingCategoryForm.nom,
+        type_traitement: editingCategoryForm.type_traitement,
+        jour_du_mois: Number(editingCategoryForm.jour_du_mois),
+        montant: parseFloat(String(editingCategoryForm.montant || '0')) || 0,
+        date_debut: editingCategoryForm.date_debut || null,
+        date_fin: editingCategoryForm.date_fin || null,
       })
-    : []
+      setEditingCategoryId(null)
+      notifySuccess()
+      fetchData()
+    } catch (err) {
+      console.error(err)
+      setError('Modification de la categorie impossible.')
+    }
+  }
 
-  const totalParService = (serviceNom: string) =>
-    charges.filter(c => {
-      const nom = typeof c.service === 'string' ? c.service : services.find(s => s.id === c.service)?.nom
-      return nom === serviceNom
-    }).reduce((sum, c) => sum + parseFloat(c.montant), 0)
+  const handleDeleteCategory = async (id: number) => {
+    try {
+      await api.delete(`/charges-fixes/categories/${id}/`)
+      notifySuccess()
+      fetchData()
+    } catch (err) {
+      console.error(err)
+      setError('Suppression de la categorie impossible.')
+    }
+  }
 
-  const tableData = chargesService.map((c, i) => ({
-    ...c,
-    index: i + 1,
-    montant_fmt: `${parseFloat(c.montant).toLocaleString('fr-FR')} DH`,
-    created_at_fmt: new Date(c.created_at).toLocaleDateString('fr-FR'),
-    date_fmt: c.date ? new Date(c.date).toLocaleDateString('fr-FR') : '—',
+  const stats = useMemo(() => {
+    const totalMontant = categories.reduce((sum: number, c: any) => sum + Number(c.montant || 0), 0)
+    const banqueCount = categories.filter((c: any) => c.type_traitement === 'traitee_par_banque').length
+    const caisseCount = categories.filter((c: any) => c.type_traitement === 'traitee_par_caisse').length
+
+    return {
+      totalCategories: categories.length,
+      totalMontant,
+      banqueCount,
+      caisseCount,
+    }
+  }, [categories])
+
+  const chartByType = [
+    {
+      name: 'Traitees par banque',
+      value: categories
+        .filter((c: any) => c.type_traitement === 'traitee_par_banque')
+        .reduce((sum: number, c: any) => sum + Number(c.montant || 0), 0)
+    },
+    {
+      name: 'Traitees par caisse',
+      value: categories
+        .filter((c: any) => c.type_traitement === 'traitee_par_caisse')
+        .reduce((sum: number, c: any) => sum + Number(c.montant || 0), 0)
+    },
+  ]
+
+  const chartByCategory = categories.map((c: any) => ({
+    name: c.nom,
+    montant: Number(c.montant || 0),
   }))
 
-  // ─── VUE CATÉGORIES ───
-  if (showCategories) {
-    const categoriesTableData = categoriesConfig.map((cat, i) => ({ ...cat, _index: i }))
-
-    return (
-      <Layout>
-        <div style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <button onClick={() => setShowCategories(false)} style={{ background: '#e8eaed', border: 'none', borderRadius: '6px', padding: '6px 12px', cursor: 'pointer', fontSize: '12px', color: '#555' }}>← Retour</button>
-              <div>
-                <h1 style={{ fontSize: '18px', fontWeight: '700', color: '#1a3a6b' }}>Catégories des charges fixes</h1>
-                <p style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>Configuration des catégories et jours de prévision</p>
-              </div>
-            </div>
-            <button onClick={() => setShowAddCategorie(true)} style={{ padding: '8px 16px', background: '#0099cc', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>+ Ajouter NV</button>
-          </div>
-
-          {showAddCategorie && (
-            <div style={{ background: '#fff', borderRadius: '8px', padding: '20px', border: '1px solid #e8eaed', marginBottom: '20px' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#1a3a6b', marginBottom: '16px' }}>Nouvelle catégorie</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Catégorie *</label>
-                  <select style={inputStyle} value={newCategorie.categorie} onChange={e => setNewCategorie(p => ({ ...p, categorie: e.target.value }))}>
-                    <option value="">Sélectionner...</option>
-                    {categoriesFixes.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Date de prévision (jour du mois) *</label>
-                  <input style={inputStyle} type="number" min="1" max="31" value={newCategorie.jour_du_mois} onChange={e => setNewCategorie(p => ({ ...p, jour_du_mois: e.target.value }))} placeholder="Ex: 5" />
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-                <button onClick={handleAddCategorie} style={{ padding: '8px 20px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Créer</button>
-                <button onClick={() => { setShowAddCategorie(false); setNewCategorie({ categorie: '', jour_du_mois: '' }) }} style={{ padding: '8px 20px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Annuler</button>
-              </div>
-            </div>
-          )}
-
-          <SortableTable
-            emptyMessage="Aucune catégorie configurée — cliquez sur + Ajouter NV"
-            columns={[
-              { key: '_index', label: '#', render: (_v: any, row: any) => <span style={{ color: '#aaa' }}>{row._index + 1}</span> },
-              { key: 'categorie', label: 'Catégorie', render: (_v: any, row: any) => <span style={{ fontWeight: '500', color: '#2c2c2c' }}>{row.categorie}</span> },
-              { key: 'jour_du_mois', label: 'Date de prévision (jour du mois)', render: (_v: any, row: any) => (
-                <span style={{ background: '#e8f4fb', color: '#0099cc', padding: '3px 10px', borderRadius: '4px', fontSize: '12px', fontWeight: '600' }}>
-                  Jour {row.jour_du_mois} du mois
-                </span>
-              )},
-              { key: 'actions', label: 'Actions', sortable: false, render: (_v: any, row: any) => (
-                <button onClick={() => handleDeleteCategorie(row._index)} style={{ padding: '4px 10px', background: '#fdeaea', color: '#c0392b', border: '1px solid #f5c6c6', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>Supprimer</button>
-              )},
-            ]}
-            data={categoriesTableData}
-          />
-        </div>
-      </Layout>
-    )
-  }
+  const categoryTableData = categories.map((c: any) => ({
+    ...c,
+    montant_fmt: `${fmtDh(c.montant)} DH`,
+    periode_fmt: `${formatDate(c.date_debut)} au ${formatDate(c.date_fin)}`,
+  }))
 
   return (
     <Layout>
-      <div style={{ padding: '20px' }}>
-
-        {/* HEADER */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {selectedService && (
-              <button onClick={() => { setSelectedService(null); setShowForm(false) }}
-                style={{ background: '#e8eaed', border: 'none', borderRadius: '6px', padding: '6px 12px', cursor: 'pointer', fontSize: '12px', color: '#555' }}>
-                ← Retour
-              </button>
-            )}
+      <div style={{ padding: '16px 18px 20px', fontSize: '14px' }}>
+        <div style={{ marginBottom: '14px' }}>
+          <div style={{ ...cardStyle, padding: '18px 20px 16px', background: 'linear-gradient(135deg, #ffffff 0%, #fbfcfd 100%)' }}>
             <div>
-              <h1 style={{ fontSize: '18px', fontWeight: '700', color: '#1a3a6b' }}>
-                Charges fixes {selectedService ? `— ${selectedService.nom}` : ''}
-              </h1>
-              <p style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>Gestion des charges fixes</p>
+              <div style={{ fontSize: '20px', fontWeight: '800', color: '#1d2836', marginBottom: '6px' }}>
+                Charges fixes
+              </div>
+              <div style={{ fontSize: '12px', color: '#6b7280', maxWidth: '760px' }}>
+                Parametrage des categories principales pour la projection mensuelle des charges fixes.
+              </div>
             </div>
-          </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <ImportExcel
-              onImport={handleImport}
-              columns={[
-                { key: 'service', label: 'Service' },
-                { key: 'categorie', label: 'Catégorie' },
-                { key: 'montant', label: 'Montant' },
-                { key: 'date', label: 'Période' },
-              ]}
-            />
-            {selectedService && (
-              <button onClick={() => { setShowForm(!showForm); setForm({ ...form, service: String(selectedService.id) }) }}
-                style={{ padding: '8px 16px', background: '#0099cc', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>
-                + Ajouter charge fixe
-              </button>
-            )}
           </div>
         </div>
 
-        {/* KPI TOTAL */}
-        <div style={{ background: '#fff', borderRadius: '8px', padding: '16px', border: '1px solid #e8eaed', borderTop: '3px solid #0099cc', marginBottom: '20px', display: 'inline-block', minWidth: '200px' }}>
-          <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>
-            {selectedService ? `Total charges fixes — ${selectedService.nom}` : 'Total charges fixes'}
+        {(success || error) && (
+          <div style={{ marginBottom: '12px' }}>
+            {success && (
+              <div style={{ ...cardStyle, padding: '10px 12px', background: '#e9f7f0', borderColor: '#ccebdc', color: '#1f8a57', fontSize: '12px', fontWeight: 600 }}>
+                Operation enregistree avec succes.
+              </div>
+            )}
+            {error && (
+              <div style={{ ...cardStyle, padding: '10px 12px', background: '#fdeceb', borderColor: '#f4cfcf', color: '#c93128', fontSize: '12px', fontWeight: 600 }}>
+                {error}
+              </div>
+            )}
           </div>
-          <div style={{ fontSize: '22px', fontWeight: '700', color: '#0099cc' }}>
-            {selectedService ? totalParService(selectedService.nom).toLocaleString('fr-FR') : totalMontant.toLocaleString('fr-FR')} DH
-          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
+          <button style={compactButton(activeTab === 'dashboard')} onClick={() => setActiveTab('dashboard')}>
+            Tableau de bord
+          </button>
+          <button style={compactButton(activeTab === 'categories')} onClick={() => setActiveTab('categories')}>
+            Categories
+          </button>
         </div>
 
         {loading ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: '#888' }}>Chargement...</div>
-        ) : !selectedService ? (
-          /* ─── VUE SERVICES (CARDS) ─── */
-          <div>
-            {services.length === 0 ? (
-              <div style={{ textAlign: 'center', color: '#aaa', padding: '40px', fontSize: '13px' }}>
-                Aucun service trouvé. Créez d'abord des services.
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
-
-                {/* ─── CARD CATÉGORIES ─── */}
-                <div
-                  onClick={() => setShowCategories(true)}
-                  style={{
-                    background: '#fff', borderRadius: '10px',
-                    border: '2px dashed #1a3a6b',
-                    padding: '20px', cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-                  }}
-                  onMouseOver={e => {
-                    e.currentTarget.style.borderColor = '#0099cc'
-                    e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,153,204,0.15)'
-                    e.currentTarget.style.transform = 'translateY(-2px)'
-                  }}
-                  onMouseOut={e => {
-                    e.currentTarget.style.borderColor = '#1a3a6b'
-                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)'
-                    e.currentTarget.style.transform = 'translateY(0)'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                    <div style={{ fontSize: '32px' }}>📋</div>
-                    <span style={{ fontSize: '10px', background: '#e8edf5', color: '#1a3a6b', padding: '2px 8px', borderRadius: '4px', fontWeight: '600' }}>
-                      {categoriesConfig.length} config
-                    </span>
-                  </div>
-                  <div style={{ fontSize: '15px', fontWeight: '700', color: '#1a3a6b', marginBottom: '8px' }}>Catégories des charges fixes</div>
-                  <div style={{ fontSize: '11px', color: '#888' }}>Gérer les catégories et jours de prévision</div>
-                </div>
-
-                {/* ─── CARDS SERVICES ─── */}
-                {services.map(service => {
-                  const total = totalParService(service.nom)
-                  const count = charges.filter(c => {
-                    const nom = typeof c.service === 'string' ? c.service : services.find(s => s.id === c.service)?.nom
-                    return nom === service.nom
-                  }).length
-                  return (
-                    <div key={service.id}
-                      onClick={() => setSelectedService(service)}
-                      style={{
-                        background: '#fff', borderRadius: '10px',
-                        border: '2px solid #e8eaed',
-                        padding: '20px', cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-                      }}
-                      onMouseOver={e => {
-                        e.currentTarget.style.borderColor = '#0099cc'
-                        e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,153,204,0.15)'
-                        e.currentTarget.style.transform = 'translateY(-2px)'
-                      }}
-                      onMouseOut={e => {
-                        e.currentTarget.style.borderColor = '#e8eaed'
-                        e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)'
-                        e.currentTarget.style.transform = 'translateY(0)'
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                        <div style={{ fontSize: '32px' }}>🏢</div>
-                        <span style={{ fontSize: '10px', background: '#e8f4fb', color: '#0099cc', padding: '2px 8px', borderRadius: '4px', fontWeight: '600' }}>
-                          {count} charge{count > 1 ? 's' : ''}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '15px', fontWeight: '700', color: '#1a3a6b', marginBottom: '8px' }}>{service.nom}</div>
-                      <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Total charges fixes</div>
-                      <div style={{ fontSize: '20px', fontWeight: '800', color: '#0099cc' }}>
-                        {total.toLocaleString('fr-FR')} DH
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+          <div style={{ ...cardStyle, padding: '36px', textAlign: 'center', color: '#6b7280' }}>
+            Chargement en cours...
           </div>
         ) : (
-          /* ─── VUE DÉTAIL SERVICE ─── */
-          <div>
-            {showForm && (
-              <div style={{ background: '#fff', borderRadius: '8px', padding: '20px', border: '1px solid #e8eaed', marginBottom: '20px' }}>
-                <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#1a3a6b', marginBottom: '16px' }}>
-                  Nouvelle charge fixe — {selectedService.nom}
-                </h3>
-                <form onSubmit={handleSubmit}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div>
-                      <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Service *</label>
-                      <select style={inputStyle} value={form.service} onChange={e => setForm({ ...form, service: e.target.value })} required>
-                        <option value="">Sélectionner...</option>
-                        {services.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
-                      </select>
+          <>
+            {activeTab === 'dashboard' && (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '10px', marginBottom: '14px' }}>
+                  <div style={{ ...cardStyle, padding: '14px', borderTop: '3px solid #1d2836' }}>
+                    <div style={{ fontSize: '10.5px', color: '#6b7280', marginBottom: '5px' }}>Categories</div>
+                    <div style={{ fontSize: '17px', fontWeight: '800', color: '#1d2836' }}>{stats.totalCategories}</div>
+                    <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '5px' }}>Parametres actifs</div>
+                  </div>
+
+                  <div style={{ ...cardStyle, padding: '14px', borderTop: '3px solid #1f8a57' }}>
+                    <div style={{ fontSize: '10.5px', color: '#6b7280', marginBottom: '5px' }}>Montant cumule</div>
+                    <div style={{ fontSize: '17px', fontWeight: '800', color: '#1f8a57' }}>{fmtDh(stats.totalMontant)} DH</div>
+                    <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '5px' }}>Projection mensuelle</div>
+                  </div>
+
+                  <div style={{ ...cardStyle, padding: '14px', borderTop: '3px solid #2a5ea8' }}>
+                    <div style={{ fontSize: '10.5px', color: '#6b7280', marginBottom: '5px' }}>Traitees par banque</div>
+                    <div style={{ fontSize: '17px', fontWeight: '800', color: '#2a5ea8' }}>{stats.banqueCount}</div>
+                    <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '5px' }}>Categories</div>
+                  </div>
+
+                  <div style={{ ...cardStyle, padding: '14px', borderTop: '3px solid #c93128' }}>
+                    <div style={{ fontSize: '10.5px', color: '#6b7280', marginBottom: '5px' }}>Traitees par caisse</div>
+                    <div style={{ fontSize: '17px', fontWeight: '800', color: '#c93128' }}>{stats.caisseCount}</div>
+                    <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '5px' }}>Categories</div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: '10px' }}>
+                  <div style={{ ...cardStyle, padding: '14px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <div style={{ fontSize: '13px', fontWeight: '700', color: '#1d2836' }}>Montants par categorie</div>
+                      <div style={{ fontSize: '10px', color: '#6b7280' }}>Vue globale</div>
                     </div>
-                    <div>
-                      <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Catégorie *</label>
-                      <select style={inputStyle} value={form.categorie} onChange={e => setForm({ ...form, categorie: e.target.value })} required>
-                        <option value="">Sélectionner une catégorie...</option>
-                        {categoriesFixes.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                      </select>
+
+                    <ResponsiveContainer width="100%" height={240}>
+                      <BarChart data={chartByCategory}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#eef2f6" />
+                        <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                        <YAxis tick={{ fontSize: 10 }} />
+                        <Tooltip formatter={(v: any) => `${fmtDh(v)} DH`} />
+                        <Bar dataKey="montant" fill="#1d2836" radius={[5, 5, 0, 0]} maxBarSize={34} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div style={{ ...cardStyle, padding: '14px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#1d2836', marginBottom: '10px', textAlign: 'center' }}>
+                      Repartition par traitement
                     </div>
-                    <div>
-                      <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Montant (DH) *</label>
-                      <input style={inputStyle} type="number" value={form.montant} onChange={e => setForm({ ...form, montant: e.target.value })} required placeholder="Ex: 5000" />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Date début période</label>
-                      <input style={inputStyle} type="date" value={form.date_debut} onChange={e => setForm({ ...form, date_debut: e.target.value })} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Date fin période</label>
-                      <input style={inputStyle} type="date" value={form.date_fin} onChange={e => setForm({ ...form, date_fin: e.target.value })} />
-                    </div>
-                    {form.date_debut && form.date_fin && (
-                      <div style={{ gridColumn: '1 / -1' }}>
-                        <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Période</label>
-                        <div style={{ background: '#e8f4fb', border: '1px solid #b3d9f0', borderRadius: '6px', padding: '8px 12px', fontSize: '13px', color: '#0099cc', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          📅 {new Date(form.date_debut).toLocaleDateString('fr-FR')} au {new Date(form.date_fin).toLocaleDateString('fr-FR')}
-                          <button type="button" onClick={() => setForm({ ...form, date_debut: '', date_fin: '' })} style={{ background: 'none', border: 'none', color: '#c0392b', cursor: 'pointer', fontSize: '12px' }}>✕</button>
-                        </div>
+                    {chartByType.some(item => item.value > 0) ? (
+                      <ResponsiveContainer width="100%" height={210}>
+                        <PieChart>
+                          <Pie data={chartByType} dataKey="value" nameKey="name" outerRadius={76} innerRadius={36} paddingAngle={2}>
+                            <Cell fill="#2a5ea8" />
+                            <Cell fill="#c93128" />
+                          </Pie>
+                          <Tooltip formatter={(v: any) => `${fmtDh(v)} DH`} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div style={{ textAlign: 'center', color: '#9ca3af', paddingTop: '92px', fontSize: '12px' }}>
+                        Aucune donnee
                       </div>
                     )}
                   </div>
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-                    <button type="submit" style={{ padding: '8px 20px', background: '#1a3a6b', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Créer</button>
-                    <button type="button" onClick={() => setShowForm(false)} style={{ padding: '8px 20px', background: '#fff', color: '#555', border: '1px solid #e0e0e0', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Annuler</button>
+
+                  <div style={{ ...cardStyle, padding: '14px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#1d2836', marginBottom: '10px' }}>
+                      Echeancier mensuel
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {categories.slice(0, 6).map((cat: any) => (
+                        <div key={cat.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', fontSize: '12px', borderBottom: '1px solid #eef2f6', paddingBottom: '6px' }}>
+                          <span style={{ color: '#4b5563' }}>{cat.nom}</span>
+                          <strong style={{ color: '#1d2836' }}>Jour {cat.jour_du_mois}</strong>
+                        </div>
+                      ))}
+                      {categories.length === 0 && (
+                        <div style={{ color: '#9ca3af', fontSize: '12px' }}>Aucune categorie</div>
+                      )}
+                    </div>
                   </div>
-                </form>
-              </div>
+                </div>
+              </>
             )}
 
-            <SortableTable
-              emptyMessage="Aucune charge fixe pour ce service"
-              columns={[
-                { key: 'index', label: '#', render: (_v: any, row: any) => <span style={{ color: '#aaa' }}>{row.index}</span> },
-                { key: 'service', label: 'Service', render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.service}</span> },
-                { key: 'categorie', label: 'Catégorie', render: (_v: any, row: any) => <span style={{ fontWeight: '500', color: '#2c2c2c' }}>{row.categorie}</span> },
-                { key: 'montant_fmt', label: 'Montant', render: (_v: any, row: any) => <span style={{ fontWeight: '600', color: '#0099cc' }}>{row.montant_fmt}</span> },
-                { key: 'date_fmt', label: 'Période', render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.date_fmt}</span> },
-                { key: 'created_at_fmt', label: 'Créé le', render: (_v: any, row: any) => <span style={{ color: '#555' }}>{row.created_at_fmt}</span> },
-                { key: 'actions', label: 'Actions', sortable: false, render: (_v: any, row: any) => (
-                  <button onClick={() => handleDelete(row.id)} style={{ padding: '4px 10px', background: '#fdeaea', color: '#c0392b', border: '1px solid #f5c6c6', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>Supprimer</button>
-                )},
-              ]}
-              data={tableData}
-            />
-          </div>
+            {activeTab === 'categories' && (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '14px' }}>
+                  <button
+                    onClick={() => setShowCategoryForm(!showCategoryForm)}
+                    style={{ ...compactButton(true), background: '#c93128', borderColor: '#c93128' }}
+                  >
+                    + Ajouter categorie
+                  </button>
+                </div>
+
+                {showCategoryForm && (
+                  <div style={{ ...cardStyle, padding: '18px', marginBottom: '14px' }}>
+                    <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#1d2836', marginBottom: '14px' }}>
+                      Nouvelle categorie
+                    </h3>
+                    <form onSubmit={handleCreateCategory}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '11px' }}>
+                        <div>
+                          <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Nom *</label>
+                          <input style={inputStyle} value={categoryForm.nom} onChange={e => setCategoryForm({ ...categoryForm, nom: e.target.value })} required />
+                        </div>
+
+                        <div>
+                          <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Type *</label>
+                          <select style={inputStyle} value={categoryForm.type_traitement} onChange={e => setCategoryForm({ ...categoryForm, type_traitement: e.target.value })}>
+                            {TYPE_OPTIONS.map(option => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Jour du mois *</label>
+                          <input
+                            style={inputStyle}
+                            type="number"
+                            min="1"
+                            max="31"
+                            value={categoryForm.jour_du_mois}
+                            onChange={e => setCategoryForm({ ...categoryForm, jour_du_mois: Number(e.target.value) })}
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Montant *</label>
+                          <input
+                            style={inputStyle}
+                            type="number"
+                            value={categoryForm.montant}
+                            onChange={e => setCategoryForm({ ...categoryForm, montant: e.target.value })}
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Date de debut *</label>
+                          <input
+                            style={inputStyle}
+                            type="date"
+                            value={categoryForm.date_debut}
+                            onChange={e => setCategoryForm({ ...categoryForm, date_debut: e.target.value })}
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Date de fin *</label>
+                          <input
+                            style={inputStyle}
+                            type="date"
+                            value={categoryForm.date_fin}
+                            onChange={e => setCategoryForm({ ...categoryForm, date_fin: e.target.value })}
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+                        <button type="submit" style={compactButton(true)}>Creer</button>
+                        <button type="button" onClick={() => setShowCategoryForm(false)} style={compactButton(false)}>Annuler</button>
+                      </div>
+                    </form>
+                  </div>
+                )}
+
+                <SortableTable
+                  emptyMessage="Aucune categorie."
+                  columns={[
+                    {
+                      key: 'nom',
+                      label: 'Categorie',
+                      sortable: false,
+                      render: (_v: any, row: any) => editingCategoryId === row.id ? (
+                        <input style={{ ...inputStyle, width: '180px', padding: '6px 8px' }} value={editingCategoryForm.nom} onChange={e => setEditingCategoryForm({ ...editingCategoryForm, nom: e.target.value })} />
+                      ) : (
+                        <span style={{ fontWeight: 600, color: '#1f2937' }}>{row.nom}</span>
+                      ),
+                    },
+                    {
+                      key: 'type_traitement_label',
+                      label: 'Type',
+                      sortable: false,
+                      render: (_v: any, row: any) => editingCategoryId === row.id ? (
+                        <select style={{ ...inputStyle, width: '180px', padding: '6px 8px' }} value={editingCategoryForm.type_traitement} onChange={e => setEditingCategoryForm({ ...editingCategoryForm, type_traitement: e.target.value })}>
+                          {TYPE_OPTIONS.map(option => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span style={{ color: '#4b5563' }}>{row.type_traitement_label}</span>
+                      ),
+                    },
+                    {
+                      key: 'jour_du_mois',
+                      label: 'Jour du mois',
+                      sortable: false,
+                      render: (_v: any, row: any) => editingCategoryId === row.id ? (
+                        <input style={{ ...inputStyle, width: '90px', padding: '6px 8px' }} type="number" min="1" max="31" value={editingCategoryForm.jour_du_mois} onChange={e => setEditingCategoryForm({ ...editingCategoryForm, jour_du_mois: e.target.value })} />
+                      ) : (
+                        <span style={{ fontWeight: 700, color: '#2a5ea8' }}>Jour {row.jour_du_mois}</span>
+                      ),
+                    },
+                    {
+                      key: 'montant_fmt',
+                      label: 'Montant',
+                      sortable: false,
+                      render: (_v: any, row: any) => editingCategoryId === row.id ? (
+                        <input style={{ ...inputStyle, width: '120px', padding: '6px 8px' }} type="number" value={editingCategoryForm.montant} onChange={e => setEditingCategoryForm({ ...editingCategoryForm, montant: e.target.value })} />
+                      ) : (
+                        <span style={{ fontWeight: 700, color: '#1f8a57' }}>{row.montant_fmt}</span>
+                      ),
+                    },
+                    {
+                      key: 'periode_fmt',
+                      label: 'Periode',
+                      sortable: false,
+                      render: (_v: any, row: any) => editingCategoryId === row.id ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <input
+                            type="date"
+                            value={editingCategoryForm.date_debut}
+                            onChange={e => setEditingCategoryForm({ ...editingCategoryForm, date_debut: e.target.value })}
+                            style={{ ...inputStyle, width: '150px', padding: '6px 8px' }}
+                          />
+                          <input
+                            type="date"
+                            value={editingCategoryForm.date_fin}
+                            onChange={e => setEditingCategoryForm({ ...editingCategoryForm, date_fin: e.target.value })}
+                            style={{ ...inputStyle, width: '150px', padding: '6px 8px' }}
+                          />
+                        </div>
+                      ) : (
+                        <span style={{ color: '#4b5563' }}>{row.periode_fmt}</span>
+                      ),
+                    },
+                    {
+                      key: 'actions',
+                      label: 'Actions',
+                      sortable: false,
+                      render: (_v: any, row: any) => editingCategoryId === row.id ? (
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button onClick={() => handleUpdateCategory(row.id)} style={{ ...stateButton, background: '#1d2836', color: '#fff', borderColor: '#1d2836' }}>OK</button>
+                          <button onClick={() => setEditingCategoryId(null)} style={stateButton}>X</button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            onClick={() => {
+                              setEditingCategoryId(row.id)
+                              setEditingCategoryForm({
+                                nom: row.nom,
+                                type_traitement: row.type_traitement,
+                                jour_du_mois: String(row.jour_du_mois),
+                                montant: String(row.montant),
+                                date_debut: row.date_debut || '',
+                                date_fin: row.date_fin || '',
+                              })
+                            }}
+                            style={{ ...stateButton, color: '#2a5ea8', borderColor: '#cddcf5' }}
+                          >
+                            Modifier
+                          </button>
+                          <button onClick={() => handleDeleteCategory(row.id)} style={{ ...stateButton, color: '#c93128', borderColor: '#f0c7c5' }}>
+                            Supprimer
+                          </button>
+                        </div>
+                      ),
+                    },
+                  ]}
+                  data={categoryTableData}
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
     </Layout>

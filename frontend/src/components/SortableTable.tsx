@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 interface Column {
   key: string
@@ -11,9 +11,25 @@ interface Props {
   columns: Column[]
   data: any[]
   emptyMessage?: string
+  selectableRows?: boolean
+  selectedRowIds?: Array<number | string>
+  onToggleRow?: (id: number | string) => void
+  onToggleAllRows?: (ids: Array<number | string>, checked: boolean) => void
+  batchActions?: React.ReactNode
+  footerContent?: React.ReactNode
 }
 
-const SortableTable = ({ columns, data, emptyMessage = 'Aucune donnée' }: Props) => {
+const SortableTable = ({
+  columns,
+  data,
+  emptyMessage = 'Aucune donnee',
+  selectableRows = false,
+  selectedRowIds = [],
+  onToggleRow,
+  onToggleAllRows,
+  batchActions,
+  footerContent,
+}: Props) => {
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [filters, setFilters] = useState<{ [key: string]: string[] }>({})
@@ -41,7 +57,7 @@ const SortableTable = ({ columns, data, emptyMessage = 'Aucune donnée' }: Props
   }
 
   const getUniqueValues = (key: string) => {
-    const vals = data.map(row => String(row[key] ?? '—')).filter(Boolean)
+    const vals = data.map(row => String(row[key] ?? '-')).filter(Boolean)
     return Array.from(new Set(vals)).sort()
   }
 
@@ -60,36 +76,81 @@ const SortableTable = ({ columns, data, emptyMessage = 'Aucune donnée' }: Props
     setFilters(newFilters)
   }
 
-  const filteredData = data.filter(row => {
-    return columns.every(col => {
-      const activeFilters = filters[col.key]
-      if (!activeFilters || activeFilters.length === 0) return true
-      const cellVal = String(row[col.key] ?? '—')
-      return activeFilters.includes(cellVal)
-    })
-  })
+  const filteredData = useMemo(
+    () =>
+      data.filter(row =>
+        columns.every(col => {
+          const activeFilters = filters[col.key]
+          if (!activeFilters || activeFilters.length === 0) return true
+          const cellVal = String(row[col.key] ?? '-')
+          return activeFilters.includes(cellVal)
+        })
+      ),
+    [data, columns, filters]
+  )
 
-  const sortedData = [...filteredData].sort((a, b) => {
-    if (!sortKey) return 0
-    const aVal = a[sortKey]
-    const bVal = b[sortKey]
-    if (aVal === undefined || aVal === null) return 1
-    if (bVal === undefined || bVal === null) return -1
-    const aNum = parseFloat(aVal)
-    const bNum = parseFloat(bVal)
-    if (!isNaN(aNum) && !isNaN(bNum)) {
-      return sortDir === 'asc' ? aNum - bNum : bNum - aNum
-    }
-    return sortDir === 'asc'
-      ? String(aVal).localeCompare(String(bVal))
-      : String(bVal).localeCompare(String(aVal))
-  })
+  const sortedData = useMemo(() => {
+    const rows = [...filteredData]
+    rows.sort((a, b) => {
+      if (!sortKey) return 0
+      const aVal = a[sortKey]
+      const bVal = b[sortKey]
+      if (aVal === undefined || aVal === null) return 1
+      if (bVal === undefined || bVal === null) return -1
+      const aNum = parseFloat(aVal)
+      const bNum = parseFloat(bVal)
+      if (!isNaN(aNum) && !isNaN(bNum)) {
+        return sortDir === 'asc' ? aNum - bNum : bNum - aNum
+      }
+      return sortDir === 'asc'
+        ? String(aVal).localeCompare(String(bVal))
+        : String(bVal).localeCompare(String(aVal))
+    })
+    return rows
+  }, [filteredData, sortKey, sortDir])
+
+  const visibleIds = sortedData
+    .map(row => row.id)
+    .filter((id: any) => id !== undefined && id !== null)
+
+  const allVisibleSelected =
+    visibleIds.length > 0 && visibleIds.every(id => selectedRowIds.includes(id))
 
   return (
-    <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e8eaed', overflow: 'visible', position: 'relative' }} ref={filterRef}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+    <div
+      ref={filterRef}
+      style={{
+        background: '#fff',
+        borderRadius: '12px',
+        border: '1px solid #d9e0e7',
+        boxShadow: '0 12px 30px rgba(19, 29, 43, 0.05)',
+        overflowX: 'auto',
+        position: 'relative',
+      }}
+    >
+      <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: '11.5px', minWidth: '1280px' }}>
         <thead>
-          <tr style={{ background: '#f8f9fa' }}>
+          <tr style={{ background: '#f8fafc' }}>
+            {selectableRows && (
+              <th
+                style={{
+                  padding: '12px 10px',
+                  textAlign: 'center',
+                  color: '#6b7280',
+                  fontWeight: '600',
+                  borderBottom: '1px solid #e7edf3',
+                  whiteSpace: 'nowrap',
+                  width: '46px',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={allVisibleSelected}
+                  onChange={e => onToggleAllRows?.(visibleIds, e.target.checked)}
+                />
+              </th>
+            )}
+
             {columns.map(col => {
               const isFiltered = filters[col.key] && filters[col.key].length > 0
               const uniqueVals = getUniqueValues(col.key)
@@ -100,117 +161,182 @@ const SortableTable = ({ columns, data, emptyMessage = 'Aucune donnée' }: Props
                 <th
                   key={col.key}
                   style={{
-                    padding: '10px 14px', textAlign: 'left',
-                    color: '#888', fontWeight: '500',
-                    borderBottom: '1px solid #e8eaed',
-                    position: 'relative', userSelect: 'none',
+                    padding: '12px 14px',
+                    textAlign: 'left',
+                    color: '#6b7280',
+                    fontWeight: '600',
+                    borderBottom: '1px solid #e7edf3',
+                    position: 'relative',
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    {/* SORT */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span
                       onClick={() => col.sortable !== false && handleSort(col.key)}
                       style={{ cursor: col.sortable !== false ? 'pointer' : 'default', flex: 1 }}
                     >
                       {col.label}
                       {col.sortable !== false && (
-                        <span style={{ fontSize: '10px', color: sortKey === col.key ? '#1a3a6b' : '#ccc', marginLeft: '4px' }}>
-                          {sortKey === col.key ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
+                        <span
+                          style={{
+                            fontSize: '10px',
+                            color: sortKey === col.key ? '#1d2836' : '#b6c1cd',
+                            marginLeft: '4px',
+                          }}
+                        >
+                          {sortKey === col.key ? (sortDir === 'asc' ? '▲' : '▼') : '↕'}
                         </span>
                       )}
                     </span>
 
-                    {/* FILTER BUTTON */}
                     {col.sortable !== false && (
                       <button
-                        onClick={e => { e.stopPropagation(); setOpenFilter(openFilter === col.key ? null : col.key); setSearchFilter({ ...searchFilter, [col.key]: '' }) }}
+                        onClick={e => {
+                          e.stopPropagation()
+                          setOpenFilter(openFilter === col.key ? null : col.key)
+                          setSearchFilter({ ...searchFilter, [col.key]: '' })
+                        }}
                         style={{
-                          background: isFiltered ? '#1a3a6b' : '#e8eaed',
-                          border: 'none', borderRadius: '3px',
-                          width: '18px', height: '18px',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          cursor: 'pointer', fontSize: '10px',
-                          color: isFiltered ? '#fff' : '#555',
+                          background: isFiltered ? '#1d2836' : '#eef2f6',
+                          border: '1px solid ' + (isFiltered ? '#1d2836' : '#dde5ee'),
+                          borderRadius: '6px',
+                          width: '20px',
+                          height: '20px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          fontSize: '10px',
+                          color: isFiltered ? '#fff' : '#516072',
                           flexShrink: 0,
                         }}
-                      >▼</button>
+                      >
+                        ▼
+                      </button>
                     )}
                   </div>
 
-                  {/* DROPDOWN */}
                   {openFilter === col.key && (
                     <div
                       onClick={e => e.stopPropagation()}
                       style={{
-                        position: 'absolute', top: '100%', left: 0,
-                        background: '#fff', border: '1px solid #e0e0e0',
-                        borderRadius: '6px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                        zIndex: 999, minWidth: '200px', padding: '8px',
+                        position: 'absolute',
+                        top: 'calc(100% + 8px)',
+                        left: 0,
+                        background: '#fff',
+                        border: '1px solid #d9e0e7',
+                        borderRadius: '10px',
+                        boxShadow: '0 18px 40px rgba(19, 29, 43, 0.14)',
+                        zIndex: 999,
+                        minWidth: '220px',
+                        padding: '10px',
                       }}
                     >
-                      {/* SEARCH */}
-                      <div style={{ position: 'relative', marginBottom: '6px' }}>
+                      <div style={{ position: 'relative', marginBottom: '8px' }}>
                         <input
                           value={search}
                           onChange={e => setSearchFilter({ ...searchFilter, [col.key]: e.target.value })}
                           placeholder="Rechercher..."
                           style={{
-                            width: '100%', padding: '5px 28px 5px 8px',
-                            border: '1px solid #e0e0e0', borderRadius: '4px',
-                            fontSize: '11px', outline: 'none', boxSizing: 'border-box'
+                            width: '100%',
+                            padding: '7px 30px 7px 10px',
+                            border: '1px solid #d9e0e7',
+                            borderRadius: '8px',
+                            fontSize: '11px',
+                            outline: 'none',
+                            boxSizing: 'border-box',
                           }}
                         />
-                        <span style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', color: '#aaa', fontSize: '12px' }}>🔍</span>
+                        <span
+                          style={{
+                            position: 'absolute',
+                            right: '9px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            color: '#9aa7b4',
+                            fontSize: '11px',
+                          }}
+                        >
+                          ⌕
+                        </span>
                       </div>
 
-                      {/* VALUES */}
-                      <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                      <div style={{ maxHeight: '190px', overflowY: 'auto' }}>
                         {filteredVals.map(val => (
                           <div
                             key={val}
                             onClick={() => toggleFilter(col.key, val)}
                             style={{
-                              display: 'flex', alignItems: 'center', gap: '8px',
-                              padding: '5px 6px', borderRadius: '4px', cursor: 'pointer',
-                              background: (filters[col.key] || []).includes(val) ? '#e8f4fb' : 'transparent',
-                              fontSize: '11px', color: '#333',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              padding: '7px 8px',
+                              borderRadius: '8px',
+                              cursor: 'pointer',
+                              background: (filters[col.key] || []).includes(val) ? '#eef4ff' : 'transparent',
+                              fontSize: '11px',
+                              color: '#2a3646',
                             }}
                           >
-                            <span style={{
-                              width: '14px', height: '14px', borderRadius: '3px',
-                              border: '1px solid #ccc', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              background: (filters[col.key] || []).includes(val) ? '#1a3a6b' : '#fff',
-                              color: '#fff', fontSize: '10px', flexShrink: 0,
-                            }}>
+                            <span
+                              style={{
+                                width: '14px',
+                                height: '14px',
+                                borderRadius: '4px',
+                                border: '1px solid #c7d2dd',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                background: (filters[col.key] || []).includes(val) ? '#1d2836' : '#fff',
+                                color: '#fff',
+                                fontSize: '9px',
+                                flexShrink: 0,
+                              }}
+                            >
                               {(filters[col.key] || []).includes(val) ? '✓' : ''}
                             </span>
                             {val}
                           </div>
                         ))}
                         {filteredVals.length === 0 && (
-                          <div style={{ padding: '8px', color: '#aaa', fontSize: '11px', textAlign: 'center' }}>Aucun résultat</div>
+                          <div style={{ padding: '10px', color: '#9aa7b4', fontSize: '11px', textAlign: 'center' }}>
+                            Aucun resultat
+                          </div>
                         )}
                       </div>
 
-                      {/* BUTTONS */}
-                      <div style={{ display: 'flex', gap: '6px', marginTop: '8px', borderTop: '1px solid #f0f0f0', paddingTop: '8px' }}>
+                      <div style={{ display: 'flex', gap: '6px', marginTop: '10px', borderTop: '1px solid #eef2f6', paddingTop: '10px' }}>
                         <button
                           onClick={() => clearFilter(col.key)}
                           style={{
-                            flex: 1, padding: '5px', border: '1px solid #e0e0e0',
-                            borderRadius: '4px', background: '#fff', color: '#555',
-                            fontSize: '11px', cursor: 'pointer'
+                            flex: 1,
+                            padding: '7px',
+                            border: '1px solid #d9e0e7',
+                            borderRadius: '8px',
+                            background: '#fff',
+                            color: '#516072',
+                            fontSize: '11px',
+                            cursor: 'pointer',
                           }}
-                        >Annuler</button>
+                        >
+                          Reinitialiser
+                        </button>
                         <button
                           onClick={() => setOpenFilter(null)}
                           style={{
-                            flex: 1, padding: '5px', border: 'none',
-                            borderRadius: '4px', background: '#1a3a6b', color: '#fff',
-                            fontSize: '11px', cursor: 'pointer', fontWeight: '600'
+                            flex: 1,
+                            padding: '7px',
+                            border: 'none',
+                            borderRadius: '8px',
+                            background: '#1d2836',
+                            color: '#fff',
+                            fontSize: '11px',
+                            cursor: 'pointer',
+                            fontWeight: '600',
                           }}
-                        >OK</button>
+                        >
+                          Valider
+                        </button>
                       </div>
                     </div>
                   )}
@@ -219,18 +345,43 @@ const SortableTable = ({ columns, data, emptyMessage = 'Aucune donnée' }: Props
             })}
           </tr>
         </thead>
+
         <tbody>
           {sortedData.length === 0 ? (
             <tr>
-              <td colSpan={columns.length} style={{ padding: '40px', textAlign: 'center', color: '#aaa' }}>
+              <td colSpan={columns.length + (selectableRows ? 1 : 0)} style={{ padding: '42px', textAlign: 'center', color: '#9aa7b4' }}>
                 {emptyMessage}
               </td>
             </tr>
           ) : (
             sortedData.map((row, i) => (
-              <tr key={row.id || i} style={{ borderBottom: '1px solid #f5f5f5' }}>
+              <tr key={row.id || i}>
+                {selectableRows && (
+                  <td
+                    style={{
+                      padding: '12px 10px',
+                      borderBottom: i === sortedData.length - 1 ? 'none' : '1px solid #eef2f6',
+                      textAlign: 'center',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedRowIds.includes(row.id)}
+                      onChange={() => onToggleRow?.(row.id)}
+                    />
+                  </td>
+                )}
+
                 {columns.map(col => (
-                  <td key={col.key} style={{ padding: '10px 14px' }}>
+                  <td
+                    key={col.key}
+                    style={{
+                      padding: '12px 14px',
+                      borderBottom: i === sortedData.length - 1 ? 'none' : '1px solid #eef2f6',
+                      verticalAlign: 'middle',
+                      color: '#1f2937',
+                    }}
+                  >
                     {col.render ? col.render(row[col.key], row) : row[col.key]}
                   </td>
                 ))}
@@ -239,6 +390,24 @@ const SortableTable = ({ columns, data, emptyMessage = 'Aucune donnée' }: Props
           )}
         </tbody>
       </table>
+
+      {(batchActions || footerContent) && (
+        <div
+          style={{
+            borderTop: '1px solid #eef2f6',
+            padding: '12px 14px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '12px',
+            flexWrap: 'wrap',
+            background: '#fbfcfe',
+          }}
+        >
+          <div>{batchActions}</div>
+          <div>{footerContent}</div>
+        </div>
+      )}
     </div>
   )
 }

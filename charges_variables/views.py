@@ -1,44 +1,59 @@
 from rest_framework import generics, permissions
 from django_filters.rest_framework import DjangoFilterBackend
+
 from .models import ChargeVariable
 from .serializers import ChargeVariableSerializer
-from banque.models import ActionBanque
+from caisse.models import ActionCaisse
+
+
+def sync_charge_variable_relations(charge):
+    source_action = charge.source_action_caisse
+    if not source_action:
+        return
+
+    reverse_category = {
+        'administratif': 'administratif',
+        'transport': 'transport',
+        'entretien': 'entretien',
+        'equipe': 'equipe',
+        'autre': 'charge_variable',
+    }.get(charge.categorie, 'charge_variable')
+
+    ActionCaisse.objects.filter(pk=source_action.pk).update(
+        titre=charge.titre,
+        service=charge.service,
+        montant=charge.montant,
+        date=charge.date,
+        description=charge.description or '',
+        statut=charge.statut,
+        categorie=reverse_category,
+    )
+
+    ActionCaisse.objects.filter(
+        source_action_id=source_action.pk,
+        is_caisse_principale=True,
+    ).update(
+        titre=charge.titre,
+        service=charge.service,
+        montant=charge.montant,
+        date=charge.date,
+        description=charge.description or '',
+        statut=charge.statut,
+        categorie=reverse_category,
+        type=source_action.type,
+        personne=source_action.personne or '',
+    )
 
 
 class ChargeVariableListView(generics.ListCreateAPIView):
-    queryset = ChargeVariable.objects.all()
+    queryset = ChargeVariable.objects.all().order_by('-date', '-id')
     serializer_class = ChargeVariableSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['service', 'categorie', 'statut']
 
     def perform_create(self, serializer):
-        charge = serializer.save(created_by=self.request.user)
-        # Si statut traitee dès la création → créer sortie dans banque
-        if charge.statut == 'traitee':
-            self._creer_action_banque(charge)
-
-    def _creer_action_banque(self, charge):
-        try:
-            # Vérifier qu'une action banque n'existe pas déjà pour cette charge
-            existing = ActionBanque.objects.filter(
-                titre=charge.titre,
-                montant=charge.montant,
-                date=charge.date,
-                categorie='Charges variables',
-            ).first()
-            if not existing:
-                ActionBanque.objects.create(
-                    type='sortie',
-                    date=charge.date,
-                    titre=charge.titre,
-                    description=charge.description or '',
-                    montant=charge.montant,
-                    categorie='Charges variables',
-                    statut='traitee',
-                )
-        except Exception as e:
-            print(f"Erreur création action banque: {e}")
+        serializer.save(created_by=self.request.user)
 
 
 class ChargeVariableDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -47,44 +62,5 @@ class ChargeVariableDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_update(self, serializer):
-        old_statut = self.get_object().statut
         charge = serializer.save()
-
-        # Si statut passe à traitee → créer sortie dans banque
-        if old_statut != 'traitee' and charge.statut == 'traitee':
-            self._creer_action_banque(charge)
-        # Si statut repasse à en_cours → supprimer l'action banque liée
-        elif old_statut == 'traitee' and charge.statut != 'traitee':
-            self._supprimer_action_banque(charge)
-
-    def _creer_action_banque(self, charge):
-        try:
-            existing = ActionBanque.objects.filter(
-                titre=charge.titre,
-                montant=charge.montant,
-                date=charge.date,
-                categorie='Charges variables',
-            ).first()
-            if not existing:
-                ActionBanque.objects.create(
-                    type='sortie',
-                    date=charge.date,
-                    titre=charge.titre,
-                    description=charge.description or '',
-                    montant=charge.montant,
-                    categorie='Charges variables',
-                    statut='traitee',
-                )
-        except Exception as e:
-            print(f"Erreur création action banque: {e}")
-
-    def _supprimer_action_banque(self, charge):
-        try:
-            ActionBanque.objects.filter(
-                titre=charge.titre,
-                montant=charge.montant,
-                date=charge.date,
-                categorie='Charges variables',
-            ).delete()
-        except Exception as e:
-            print(f"Erreur suppression action banque: {e}")
+        sync_charge_variable_relations(charge)

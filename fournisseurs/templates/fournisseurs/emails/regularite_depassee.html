@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="fr">
+  <body style="margin:0;padding:0;background:#edf2f8;font-family:Segoe UI,Arial,sans-serif;color:#1f2937;">
+    <div style="padding:32px 16px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #d9e0e7;border-radius:18px;overflow:hidden;box-shadow:0 18px 45px rgba(19,29,43,0.08);">
+        <tr>
+          <td style="height:6px;background:linear-gradient(90deg,#cb3128 0%,#265dad 100%);font-size:0;line-height:0;">&nbsp;</td>
+        </tr>
+        <tr>
+          <td style="padding:28px 32px 18px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+              <tr>
+                <td style="vertical-align:middle;">
+                  <img src="cid:newiris-logo" alt="NEWIRIS" style="width:88px;height:auto;display:block;">
+                </td>
+                <td style="vertical-align:middle;padding-left:16px;">
+                  <div style="font-size:12px;font-weight:700;color:#cb3128;letter-spacing:.08em;text-transform:uppercase;">Newiris</div>
+                  <div style="font-size:22px;font-weight:800;color:#1d2836;line-height:1.1;">Notification fournisseur</div>
+                  <div style="font-size:12px;color:#6b7280;margin-top:4px;">Suivi des regularites et des echeances</div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 32px 24px;">
+            <div style="border-radius:14px;background:linear-gradient(135deg,#fff4f2 0%,#f8fbff 100%);border:1px solid #f1d3cf;padding:18px 18px 16px;">
+              <div style="display:inline-block;padding:6px 10px;border-radius:999px;background:#fdeaea;color:#b42318;font-size:11px;font-weight:800;margin-bottom:12px;">
+                Etat de regularite depasse
+              </div>
+              <div style="font-size:25px;font-weight:800;color:#1d2836;line-height:1.2;margin-bottom:10px;">
+                {{ fournisseur.nom }}
+              </div>
+              <div style="font-size:14px;line-height:1.7;color:#4b5563;">
+                La regularite de ce fournisseur est desormais en statut <strong style="color:#b42318;">depasse</strong>.
+                Merci de verifier le dossier et de planifier la suite de traitement.
+              </div>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 32px 24px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:separate;border-spacing:0 10px;">
+              <tr>
+                <td style="width:50%;padding:14px 16px;border:1px solid #e5eaf0;border-radius:12px;background:#fafcff;">
+                  <div style="font-size:11px;color:#6b7280;font-weight:700;margin-bottom:5px;">Type de contrat</div>
+                  <div style="font-size:14px;color:#1d2836;font-weight:700;">{{ fournisseur.type_contrat }}</div>
+                </td>
+                <td style="width:50%;padding:14px 16px;border:1px solid #e5eaf0;border-radius:12px;background:#fafcff;">
+                  <div style="font-size:11px;color:#6b7280;font-weight:700;margin-bottom:5px;">Date de fin RF</div>
+                  <div style="font-size:14px;color:#1d2836;font-weight:700;">{{ date_fin_rf|date:"d/m/Y" }}</div>
+                </td>
+              </tr>
+              <tr>
+                <td style="width:50%;padding:14px 16px;border:1px solid #e5eaf0;border-radius:12px;background:#fafcff;">
+                  <div style="font-size:11px;color:#6b7280;font-weight:700;margin-bottom:5px;">Echeance</div>
+                  <div style="font-size:14px;color:#1d2836;font-weight:700;">{{ echeance }} jour(s)</div>
+                </td>
+                <td style="width:50%;padding:14px 16px;border:1px solid #e5eaf0;border-radius:12px;background:#fafcff;">
+                  <div style="font-size:11px;color:#6b7280;font-weight:700;margin-bottom:5px;">Etat actuel</div>
+                  <div style="font-size:14px;color:#b42318;font-weight:800;">{{ etat_regularite_label }}</div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 32px 28px;">
+            <div style="font-size:12px;line-height:1.7;color:#6b7280;">
+              Cette notification a ete envoyee automatiquement aux utilisateurs autorises sur la page <strong>Fournisseurs</strong>.
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 32px 22px;border-top:1px solid #eef2f6;background:#fbfcfe;">
+            <div style="font-size:11px;color:#94a3b8;text-align:center;">
+              NEWIRIS Dashboard - Tanger - {{ year }}
+            </div>
+          </td>
+        </tr>
+      </table>
+    </div>
+  </body>
+</html>

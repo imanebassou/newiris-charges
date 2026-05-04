@@ -4,8 +4,8 @@ from django.utils import timezone
 class Fournisseur(models.Model):
     ETAT_CHOICES = [
         ('en_cours', 'En cours'),
-        ('depasee', 'Dépassée'),
-        ('renouvelee', 'Renouvelée'),
+        ('depasee', 'Depassee'),
+        ('renouvelee', 'Renouvelee'),
     ]
     nom = models.CharField(max_length=255)
     type_contrat = models.CharField(max_length=255)
@@ -13,6 +13,7 @@ class Fournisseur(models.Model):
     etat_regularite_override = models.CharField(
         max_length=20, choices=ETAT_CHOICES, blank=True, default=''
     )
+    regularite_depassee_notified_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     @property
@@ -22,7 +23,6 @@ class Fournisseur(models.Model):
 
     @property
     def etat_regularite(self):
-        # Auto calculé selon écheance — override ignoré
         e = self.echeance
         if e >= 180:
             return 'renouvelee'
@@ -32,4 +32,4 @@ class Fournisseur(models.Model):
             return 'depasee'
 
     def __str__(self):
-        return f"{self.nom} — {self.type_contrat}"
+        return f"{self.nom} - {self.type_contrat}"

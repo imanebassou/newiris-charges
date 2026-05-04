@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Commande
 
+
 class CommandeSerializer(serializers.ModelSerializer):
     fournisseur_nom = serializers.SerializerMethodField()
     doc_url = serializers.SerializerMethodField()
@@ -8,6 +9,7 @@ class CommandeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Commande
         fields = '__all__'
+        read_only_fields = ('personne',)
 
     def get_fournisseur_nom(self, obj):
         return obj.fournisseur.nom if obj.fournisseur else None

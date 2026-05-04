@@ -7,7 +7,7 @@ class Vehicule(models.Model):
     ETAT_CHOICES = [
         ('normal', 'Normal'),
         ('proche', 'Proche'),
-        ('depasee', 'Dépassée'),
+        ('depasee', 'Depassee'),
     ]
     ETAT_VOITURE_CHOICES = [
         ('active', 'Active'),
@@ -24,8 +24,8 @@ class Vehicule(models.Model):
         CustomUser, on_delete=models.SET_NULL, null=True, blank=True
     )
     couleur = models.CharField(max_length=50, blank=True)
+    photo = models.ImageField(upload_to='vehicules/photos/', null=True, blank=True)
 
-    # États
     etat_vidange = models.CharField(max_length=20, choices=ETAT_CHOICES, default='normal')
     etat_assurance = models.CharField(max_length=20, choices=ETAT_CHOICES, default='normal')
     etat_vignette = models.CharField(max_length=20, choices=ETAT_CHOICES, default='normal')
@@ -62,7 +62,7 @@ class ActionVehicule(models.Model):
         ('vignette', 'Vignette'),
         ('assurance', 'Assurance'),
         ('lavage', 'Lavage'),
-        ('depannage', 'Dépannage'),
+        ('depannage', 'Depannage'),
     ]
 
     vehicule = models.ForeignKey(
@@ -83,8 +83,8 @@ class ActionVehicule(models.Model):
 class DemandeVehicule(models.Model):
     STATUT_CHOICES = [
         ('en_attente', 'En attente'),
-        ('valide', 'Validé'),
-        ('refuse', 'Refusé'),
+        ('valide', 'Valide'),
+        ('refuse', 'Refuse'),
     ]
 
     vehicule = models.ForeignKey(
