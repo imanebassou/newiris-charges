@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'chantiers',
     'commandes',
     'newiris_sync',
+    'chat',
 ]
 
 MIDDLEWARE = [

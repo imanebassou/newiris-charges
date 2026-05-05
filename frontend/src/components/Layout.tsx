@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import Sidebar from './Sidebar'
+import ChatBot from './ChatBot'
 
 interface Props {
   children: ReactNode
@@ -25,6 +26,7 @@ const Layout = ({ children }: Props) => {
       >
         {children}
       </div>
+      <ChatBot />
     </div>
   )
 }
