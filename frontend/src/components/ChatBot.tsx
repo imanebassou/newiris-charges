@@ -44,28 +44,39 @@ const ChatBot = () => {
 
   return (
     <>
-      {/* Bouton flottant */}
+      {/* Bouton flottant Chat — bas droite */}
       <button
         onClick={() => setOpen(!open)}
+        title="Assistant IA"
         style={{
           position: 'fixed',
           bottom: '28px',
           right: '28px',
-          width: '54px',
-          height: '54px',
-          borderRadius: '50%',
-          background: 'linear-gradient(135deg, #cb3128 0%, #265dad 100%)',
+          width: '52px',
+          height: '52px',
+          borderRadius: '14px',
+          background: open
+            ? '#1d2836'
+            : 'linear-gradient(135deg, #cb3128 0%, #265dad 100%)',
           border: 'none',
           cursor: 'pointer',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
+          boxShadow: '0 8px 24px rgba(203,49,40,0.3)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 1000,
-          fontSize: '22px',
+          transition: 'all 0.2s ease',
         }}
       >
-        {open ? '✕' : '💬'}
+        {open ? (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        ) : (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        )}
       </button>
 
       {/* Fenêtre chat */}
@@ -97,29 +108,40 @@ const ChatBot = () => {
             <div style={{
               width: '36px',
               height: '36px',
-              borderRadius: '50%',
+              borderRadius: '10px',
               background: 'linear-gradient(135deg, #cb3128, #265dad)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '16px',
-            }}>🤖</div>
+            }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 8v4l3 3"/>
+              </svg>
+            </div>
             <div>
               <div style={{ color: '#ffffff', fontWeight: 700, fontSize: '13px' }}>
                 Assistant NEWIRIS
               </div>
               <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px' }}>
-                Powered by IA locale
+                IA locale — Mistral
               </div>
             </div>
             <div style={{
               marginLeft: 'auto',
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              background: '#22c55e',
-              boxShadow: '0 0 0 3px rgba(34,197,94,0.2)',
-            }} />
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}>
+              <div style={{
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                background: '#22c55e',
+                boxShadow: '0 0 0 3px rgba(34,197,94,0.2)',
+              }} />
+              <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px' }}>En ligne</span>
+            </div>
           </div>
 
           {/* Messages */}
@@ -140,14 +162,14 @@ const ChatBot = () => {
                 <div style={{
                   maxWidth: '80%',
                   padding: '10px 14px',
-                  borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                  borderRadius: msg.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
                   background: msg.role === 'user'
                     ? 'linear-gradient(135deg, #265dad, #182434)'
                     : '#ffffff',
                   color: msg.role === 'user' ? '#ffffff' : '#1d2836',
                   fontSize: '12px',
                   lineHeight: '1.6',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
                   border: msg.role === 'assistant' ? '1px solid #e5eaf0' : 'none',
                 }}>
                   {msg.content}
@@ -158,15 +180,20 @@ const ChatBot = () => {
             {loading && (
               <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
                 <div style={{
-                  padding: '10px 14px',
-                  borderRadius: '16px 16px 16px 4px',
+                  padding: '10px 16px',
+                  borderRadius: '14px 14px 14px 4px',
                   background: '#ffffff',
                   border: '1px solid #e5eaf0',
                   fontSize: '12px',
-                  color: '#6b7280',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                  color: '#9ca3af',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                  display: 'flex',
+                  gap: '4px',
+                  alignItems: 'center',
                 }}>
-                  En train de réfléchir...
+                  <span style={{ animation: 'pulse 1s infinite' }}>•</span>
+                  <span style={{ animation: 'pulse 1s infinite 0.2s' }}>•</span>
+                  <span style={{ animation: 'pulse 1s infinite 0.4s' }}>•</span>
                 </div>
               </div>
             )}
@@ -208,18 +235,21 @@ const ChatBot = () => {
                 height: '36px',
                 borderRadius: '10px',
                 background: loading || !input.trim()
-                  ? '#d9e0e7'
+                  ? '#e5eaf0'
                   : 'linear-gradient(135deg, #cb3128, #265dad)',
                 border: 'none',
                 cursor: loading || !input.trim() ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '16px',
-                color: '#ffffff',
+                flexShrink: 0,
               }}
             >
-              ➤
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke={loading || !input.trim() ? '#9ca3af' : '#fff'} strokeWidth="2.5">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
             </button>
           </div>
         </div>

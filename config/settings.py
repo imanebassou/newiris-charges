@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     'commandes',
     'newiris_sync',
     'chat',
+    'documents', 
 ]
 
 MIDDLEWARE = [

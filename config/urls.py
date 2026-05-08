@@ -27,6 +27,7 @@ urlpatterns = [
     path('api/chantiers/', include('chantiers.urls')),
     path('api/commandes/', include('commandes.urls')),
     path('api/chat/', include('chat.urls')),
+    path('api/documents/', include('documents.urls')),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
