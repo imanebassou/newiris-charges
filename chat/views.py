@@ -34,3 +34,15 @@ class ChatHistoryView(APIView):
             'created_at': m.created_at
         } for m in messages]
         return Response(data)
+
+
+class ChatDeleteView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, pk):
+        try:
+            message = ChatMessage.objects.get(id=pk, user=request.user)
+            message.delete()
+            return Response({'success': True})
+        except ChatMessage.DoesNotExist:
+            return Response({'error': 'Message non trouvé'}, status=404)
