@@ -25,8 +25,18 @@ const Login = () => {
 
       login(user, access, refresh)
 
-      if (user.role === 'super_admin') navigate('/users')
-      else navigate('/dashboard')
+      if (user.role === 'super_admin') {
+        navigate('/users')
+      } else if (user.role === 'admin') {
+        navigate('/dashboard')
+      } else {
+        const firstPage = user.page_permissions?.find((p: any) => p.can_view)
+        if (firstPage) {
+          navigate(firstPage.page_path)
+        } else {
+          navigate('/unauthorized')
+        }
+      }
 
     } catch {
       setError('Identifiants incorrects. Verifiez vos informations et reessayez.')
@@ -34,7 +44,7 @@ const Login = () => {
       setLoading(false)
     }
   }
-    
+
   const inputStyle = {
     width: '100%',
     padding: '13px 14px',
@@ -76,13 +86,7 @@ const Login = () => {
           padding: '48px',
         }}
       >
-        <div
-          style={{
-            maxWidth: '560px',
-            width: '100%',
-            color: '#ffffff',
-          }}
-        >
+        <div style={{ maxWidth: '560px', width: '100%', color: '#ffffff' }}>
           <div
             style={{
               display: 'inline-flex',
@@ -226,26 +230,11 @@ const Login = () => {
                 />
               </div>
 
-              <div
-                style={{
-                  fontSize: '22px',
-                  fontWeight: 800,
-                  color: '#1d2836',
-                  marginBottom: '6px',
-                }}
-              >
+              <div style={{ fontSize: '22px', fontWeight: 800, color: '#1d2836', marginBottom: '6px' }}>
                 Bienvenue
               </div>
 
-              <p
-                style={{
-                  fontSize: '12px',
-                  color: '#6b7280',
-                  lineHeight: 1.6,
-                  maxWidth: '280px',
-                  margin: '0 auto',
-                }}
-              >
+              <p style={{ fontSize: '12px', color: '#6b7280', lineHeight: 1.6, maxWidth: '280px', margin: '0 auto' }}>
                 Connectez-vous pour acceder au dashboard central NEWIRIS.
               </p>
             </div>
@@ -268,15 +257,7 @@ const Login = () => {
 
             <form onSubmit={handleSubmit}>
               <div style={{ marginBottom: '14px' }}>
-                <label
-                  style={{
-                    fontSize: '11px',
-                    color: '#6b7280',
-                    display: 'block',
-                    marginBottom: '6px',
-                    fontWeight: 700,
-                  }}
-                >
+                <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '6px', fontWeight: 700 }}>
                   Nom d'utilisateur
                 </label>
                 <input
@@ -290,15 +271,7 @@ const Login = () => {
               </div>
 
               <div style={{ marginBottom: '18px' }}>
-                <label
-                  style={{
-                    fontSize: '11px',
-                    color: '#6b7280',
-                    display: 'block',
-                    marginBottom: '6px',
-                    fontWeight: 700,
-                  }}
-                >
+                <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '6px', fontWeight: 700 }}>
                   Mot de passe
                 </label>
                 <input

@@ -1,124 +1,82 @@
-import os
 import json
 import requests
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import permissions
-from django.core.files.uploadedfile import InMemoryUploadedFile
 
-OLLAMA_URL = "http://host.docker.internal:11434/api/generate"
-MODEL = "mistral"
+from .extractors.pdf_extractor import extract_from_pdf
+from .extractors.image_extractor import extract_from_image
+from .extractors.text_cleaner import clean_text
+from .analyzers.ai_analyzer import analyze_document
+from .validators.field_validator import validate_fields
+
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+
+SUPPORTED_FORMATS = {
+    'pdf': 'pdf',
+    'docx': 'word',
+    'doc': 'word',
+    'xlsx': 'excel',
+    'xls': 'excel',
+    'jpg': 'image',
+    'jpeg': 'image',
+    'png': 'image',
+    'bmp': 'image',
+    'tiff': 'image',
+    'txt': 'text',
+}
 
 
-def extract_text_from_file(file):
+def extract_text(file) -> dict:
     filename = file.name.lower()
-    text = ""
+    ext = filename.rsplit('.', 1)[-1] if '.' in filename else ''
+    file_format = SUPPORTED_FORMATS.get(ext)
 
-    try:
-        # PDF
-        if filename.endswith('.pdf'):
-            import PyPDF2
-            reader = PyPDF2.PdfReader(file)
-            for page in reader.pages:
-                text += page.extract_text() or ""
+    if not file_format:
+        return {"text": "", "success": False, "error": f"Format .{ext} non supporté"}
 
-        # Word
-        elif filename.endswith('.docx'):
+    if file_format == 'pdf':
+        result = extract_from_pdf(file)
+
+    elif file_format == 'image':
+        result = extract_from_image(file)
+
+    elif file_format == 'word':
+        try:
             import docx
             doc = docx.Document(file)
-            for para in doc.paragraphs:
-                text += para.text + "\n"
+            text = '\n'.join([p.text for p in doc.paragraphs])
+            result = {"text": clean_text(text), "success": True, "method": "python-docx"}
+        except Exception as e:
+            result = {"text": "", "success": False, "error": str(e)}
 
-        # Excel
-        elif filename.endswith(('.xlsx', '.xls')):
+    elif file_format == 'excel':
+        try:
             import openpyxl
             wb = openpyxl.load_workbook(file)
+            text = ""
             for sheet in wb.sheetnames:
                 ws = wb[sheet]
                 for row in ws.iter_rows(values_only=True):
-                    text += ' | '.join([str(c) for c in row if c is not None]) + "\n"
+                    row_text = ' | '.join([str(c) for c in row if c is not None])
+                    if row_text.strip():
+                        text += row_text + "\n"
+            result = {"text": clean_text(text), "success": True, "method": "openpyxl"}
+        except Exception as e:
+            result = {"text": "", "success": False, "error": str(e)}
 
-        # Images (OCR)
-        elif filename.endswith(('.jpg', '.jpeg', '.png', '.bmp', '.tiff')):
-            from PIL import Image
-            import pytesseract
-            image = Image.open(file)
-            text = pytesseract.image_to_string(image, lang='fra+eng')
+    elif file_format == 'text':
+        try:
+            file.seek(0)
+            text = file.read().decode('utf-8', errors='ignore')
+            result = {"text": clean_text(text), "success": True, "method": "text"}
+        except Exception as e:
+            result = {"text": "", "success": False, "error": str(e)}
 
-        # Texte brut
-        elif filename.endswith('.txt'):
-            text = file.read().decode('utf-8')
+    else:
+        result = {"text": "", "success": False, "error": "Format non supporté"}
 
-    except Exception as e:
-        text = f"Erreur extraction: {str(e)}"
-
-    return text.strip()
-
-
-def analyze_with_ai(text, filename):
-    prompt = f"""Tu es un assistant NEWIRIS specialise dans l'analyse de documents.
-Analyse ce document et extrait les informations importantes.
-Reponds UNIQUEMENT avec un JSON valide, sans texte avant ou apres.
-
-Document: {filename}
-Contenu: {text[:2000]}
-
-Reponds avec ce format JSON exact:
-{{
-  "type_document": "facture|bon_de_commande|contrat_rh|contrat_fournisseur|autre",
-  "module_suggere": "commandes|fournisseurs|charges_fixes|cheques|salaires|autre",
-  "champs": {{
-    "titre": "",
-    "fournisseur": "",
-    "montant": "",
-    "date": "",
-    "echeance": "",
-    "nom": "",
-    "prenom": "",
-    "salaire_base": "",
-    "type_contrat": "",
-    "categorie": "",
-    "description": ""
-  }},
-  "confiance": "haute|moyenne|faible",
-  "resume": ""
-}}"""
-
-    try:
-        response = requests.post(OLLAMA_URL, json={
-            "model": MODEL,
-            "prompt": prompt,
-            "stream": False,
-            "options": {
-                "num_predict": 500,
-                "temperature": 0.1,
-            }
-        }, timeout=120)
-
-        reponse_text = response.json().get('response', '')
-
-        # Nettoyer et parser JSON
-        reponse_text = reponse_text.strip()
-        if '```json' in reponse_text:
-            reponse_text = reponse_text.split('```json')[1].split('```')[0]
-        elif '```' in reponse_text:
-            reponse_text = reponse_text.split('```')[1].split('```')[0]
-
-        start = reponse_text.find('{')
-        end = reponse_text.rfind('}') + 1
-        if start != -1 and end > start:
-            reponse_text = reponse_text[start:end]
-
-        return json.loads(reponse_text)
-
-    except Exception as e:
-        return {
-            "type_document": "autre",
-            "module_suggere": "autre",
-            "champs": {},
-            "confiance": "faible",
-            "resume": f"Erreur analyse IA: {str(e)}"
-        }
+    return result
 
 
 class DocumentExtractView(APIView):
@@ -129,20 +87,38 @@ class DocumentExtractView(APIView):
         if not file:
             return Response({'error': 'Aucun fichier fourni'}, status=400)
 
-        # Vérifier taille (max 10MB)
-        if file.size > 10 * 1024 * 1024:
+        if file.size > MAX_FILE_SIZE:
             return Response({'error': 'Fichier trop grand (max 10MB)'}, status=400)
 
-        # Extraire texte
-        text = extract_text_from_file(file)
-        if not text:
-            return Response({'error': 'Impossible d\'extraire le texte du document'}, status=400)
+        # 1. Extraction texte
+        extraction = extract_text(file)
+        if not extraction.get('success') or not extraction.get('text'):
+            return Response({
+                'error': extraction.get('error', 'Impossible d\'extraire le texte'),
+                'filename': file.name,
+                'analyse': {
+                    "type_document": "autre",
+                    "module_suggere": "autre",
+                    "confiance": "faible",
+                    "champs": {},
+                    "resume": "Extraction échouée. Remplissez manuellement.",
+                    "actions_suggerees": []
+                }
+            }, status=200)
 
-        # Analyser avec IA
-        analysis = analyze_with_ai(text, file.name)
+        text = extraction['text']
+
+        # 2. Analyse IA
+        analysis = analyze_document(text, file.name)
+
+        # 3. Validation champs
+        champs_valides = validate_fields(analysis.get('champs', {}))
+        analysis['champs_valides'] = champs_valides
 
         return Response({
             'filename': file.name,
-            'text_extrait': text[:500],
-            'analyse': analysis
+            'format': file.name.rsplit('.', 1)[-1].upper(),
+            'text_extrait': text[:600],
+            'methode_extraction': extraction.get('method', 'unknown'),
+            'analyse': analysis,
         })

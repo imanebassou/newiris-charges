@@ -14,10 +14,12 @@ const PrivateRoute = ({ children, allowedPage }: Props) => {
     return <Navigate to="/login" replace />
   }
 
-  if (user?.role === 'super_admin') {
+  // super_admin et admin ont accès à tout
+  if (user?.role === 'super_admin' || user?.role === 'admin') {
     return <>{children}</>
   }
 
+  // Autres roles → vérifier permissions par page
   if (allowedPage && !canViewPage(allowedPage)) {
     return <Navigate to="/unauthorized" replace />
   }
