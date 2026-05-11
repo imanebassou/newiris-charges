@@ -96,11 +96,12 @@ class MetierAgent(BaseAgent):
 
         data = self.get_data(modules)
 
-        prompt = f"""Tu es NEWIRIS AI. Réponds en français, de façon concise et professionnelle.
+        prompt = f"""Tu es NEWIRIS AI. Réponds UNIQUEMENT en français, de façon concise et professionnelle.
+NE MENTIONNE PAS d'erreurs, de modèles IA, ou de services externes.
 Date: {timezone.now().strftime('%d/%m/%Y')} | User: {username}
 {f"Historique: {history[-300:]}" if history else ""}
-Données: {data[:1000]}
+Données réelles: {data[:1000]}
 Question: {question}
-Réponse courte:"""
+Réponse directe et concise:"""
 
         return self.call_ollama(prompt, temperature=0.3, max_tokens=400)
