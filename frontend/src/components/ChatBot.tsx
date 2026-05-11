@@ -43,6 +43,7 @@ const ChatBot = () => {
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [isListening, setIsListening] = useState(false)
   const [history, setHistory] = useState<any[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
@@ -74,7 +75,6 @@ const ChatBot = () => {
       await api.delete(`/chat/history/${id}/`)
       setHistory(prev => prev.filter(h => h.id !== id))
     } catch {
-      // fallback: remove locally
       setHistory(prev => prev.filter(h => h.id !== id))
     } finally {
       setDeletingId(null)
@@ -110,6 +110,93 @@ const ChatBot = () => {
     }
   }
 
+  const sendVoiceMessage = async (transcript: string) => {
+    setMessages(prev => [...prev, {
+      role: 'user',
+      content: transcript,
+      timestamp: formatTime(new Date())
+    }])
+    setLoading(true)
+    try {
+      const res = await api.post('/chat/', { question: transcript })
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: res.data.reponse,
+        timestamp: formatTime(new Date()),
+        modules: res.data.modules || []
+      }])
+    } catch {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: 'Erreur de connexion. Réessayez.',
+        timestamp: formatTime(new Date())
+      }])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const startVoice = () => {
+  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+  if (!SpeechRecognition) {
+    alert('Utilisez Chrome ou Edge pour la reconnaissance vocale.')
+    return
+  }
+
+  if (isListening) return
+
+  const recognition = new SpeechRecognition()
+  recognition.lang = 'fr-FR'
+  recognition.continuous = true  // ← reste actif plus longtemps
+  recognition.interimResults = true
+  recognition.maxAlternatives = 1
+
+  recognition.onstart = () => {
+    setIsListening(true)
+    setInput('Parlez maintenant...')
+  }
+
+  recognition.onresult = (event: any) => {
+    let interimTranscript = ''
+    let finalTranscript = ''
+
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const transcript = event.results[i][0].transcript
+      if (event.results[i].isFinal) {
+        finalTranscript += transcript
+      } else {
+        interimTranscript += transcript
+      }
+    }
+
+    if (interimTranscript) setInput(interimTranscript)
+
+    if (finalTranscript) {
+      recognition.stop()
+      setInput(finalTranscript)
+      setTimeout(() => {
+        setInput('')
+        sendVoiceMessage(finalTranscript)
+      }, 300)
+    }
+  }
+
+  recognition.onend = () => {
+    setIsListening(false)
+    setInput('')
+  }
+
+  recognition.onerror = (event: any) => {
+    setIsListening(false)
+    setInput('')
+    if (event.error === 'not-allowed') {
+      alert('Autorisez le microphone dans votre navigateur.')
+    }
+  }
+
+  recognition.start()
+}
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -136,6 +223,10 @@ const ChatBot = () => {
           0%, 100% { box-shadow: 0 8px 28px rgba(38,93,173,0.4), 0 0 0 0 rgba(38,93,173,0.2); }
           50% { box-shadow: 0 8px 28px rgba(38,93,173,0.5), 0 0 0 8px rgba(38,93,173,0.05); }
         }
+        @keyframes micPulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(203,49,40,0.4); }
+          50% { box-shadow: 0 0 0 8px rgba(203,49,40,0.0); }
+        }
         .dot1 { animation: dotPulse 1.4s infinite 0s; }
         .dot2 { animation: dotPulse 1.4s infinite 0.2s; }
         .dot3 { animation: dotPulse 1.4s infinite 0.4s; }
@@ -147,9 +238,10 @@ const ChatBot = () => {
         .fab-btn { animation: bubbleGlow 3s ease-in-out infinite; }
         .fab-btn:hover { transform: scale(1.06); }
         .send-btn:hover:not(:disabled) { transform: scale(1.05); }
+        .mic-active { animation: micPulse 1s ease-in-out infinite; }
       `}</style>
 
-      {/* Bouton flottant — style chat bubble */}
+      {/* Bouton flottant */}
       <button
         className={!open ? 'fab-btn' : ''}
         onClick={() => setOpen(!open)}
@@ -179,7 +271,6 @@ const ChatBot = () => {
             <line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
         ) : (
-          /* Chat bubble icon avec "yeux" comme le logo */
           <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
             <rect x="2" y="2" width="28" height="22" rx="10" fill="white" fillOpacity="0.95"/>
             <path d="M10 24 L14 28 L14 24" fill="white" fillOpacity="0.95"/>
@@ -215,7 +306,6 @@ const ChatBot = () => {
             gap: '10px',
             flexShrink: 0,
           }}>
-            {/* Logo chat bubble dans header */}
             <div style={{
               width: '38px', height: '38px',
               borderRadius: '12px',
@@ -260,7 +350,6 @@ const ChatBot = () => {
                   width: '30px', height: '30px',
                   cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  transition: 'background 0.2s',
                 }}
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2">
@@ -283,20 +372,14 @@ const ChatBot = () => {
                 key={t}
                 onClick={() => setTab(t)}
                 style={{
-                  flex: 1,
-                  padding: '10px',
-                  border: 'none',
-                  background: 'transparent',
-                  cursor: 'pointer',
-                  fontSize: '12px',
+                  flex: 1, padding: '10px',
+                  border: 'none', background: 'transparent',
+                  cursor: 'pointer', fontSize: '12px',
                   fontWeight: tab === t ? 700 : 500,
                   color: tab === t ? '#265dad' : '#9ca3af',
                   borderBottom: tab === t ? '2px solid #265dad' : '2px solid transparent',
                   transition: 'all 0.2s',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                 }}
               >
                 {t === 'chat' ? (
@@ -325,34 +408,27 @@ const ChatBot = () => {
           {tab === 'chat' && (
             <>
               <div className="chat-scroll" style={{
-                flex: 1, overflowY: 'auto',
-                padding: '16px',
+                flex: 1, overflowY: 'auto', padding: '16px',
                 display: 'flex', flexDirection: 'column', gap: '16px',
                 background: '#f8fafc',
               }}>
                 {messages.map((msg, i) => (
                   <div key={i} style={{
-                    display: 'flex',
-                    flexDirection: 'column',
+                    display: 'flex', flexDirection: 'column',
                     alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start',
                     gap: '4px',
                   }}>
                     <div style={{
-                      display: 'flex',
-                      alignItems: 'flex-end',
-                      gap: '8px',
+                      display: 'flex', alignItems: 'flex-end', gap: '8px',
                       flexDirection: msg.role === 'user' ? 'row-reverse' : 'row',
                     }}>
-                      {/* Avatar */}
                       <div style={{
-                        width: '30px', height: '30px',
-                        borderRadius: '10px',
+                        width: '30px', height: '30px', borderRadius: '10px',
                         background: msg.role === 'user'
                           ? 'linear-gradient(135deg, #cb3128, #a02020)'
                           : 'linear-gradient(145deg, #265dad, #1a3f7a)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        flexShrink: 0,
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+                        flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
                       }}>
                         {msg.role === 'user' ? (
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
@@ -369,29 +445,21 @@ const ChatBot = () => {
                         )}
                       </div>
 
-                      {/* Bulle */}
                       <div style={{
-                        maxWidth: '74%',
-                        padding: '11px 14px',
-                        borderRadius: msg.role === 'user'
-                          ? '16px 4px 16px 16px'
-                          : '4px 16px 16px 16px',
+                        maxWidth: '74%', padding: '11px 14px',
+                        borderRadius: msg.role === 'user' ? '16px 4px 16px 16px' : '4px 16px 16px 16px',
                         background: msg.role === 'user'
-                          ? 'linear-gradient(135deg, #265dad, #1a3f7a)'
-                          : '#ffffff',
+                          ? 'linear-gradient(135deg, #265dad, #1a3f7a)' : '#ffffff',
                         color: msg.role === 'user' ? '#ffffff' : '#1d2836',
-                        fontSize: '12.5px',
-                        lineHeight: '1.65',
+                        fontSize: '12.5px', lineHeight: '1.65',
                         boxShadow: msg.role === 'user'
-                          ? '0 4px 14px rgba(38,93,173,0.28)'
-                          : '0 2px 8px rgba(0,0,0,0.06)',
+                          ? '0 4px 14px rgba(38,93,173,0.28)' : '0 2px 8px rgba(0,0,0,0.06)',
                         border: msg.role === 'assistant' ? '1px solid #e5eaf0' : 'none',
                       }}>
                         {msg.content}
                       </div>
                     </div>
 
-                    {/* Modules + timestamp */}
                     <div style={{
                       display: 'flex', gap: '4px', alignItems: 'center',
                       flexDirection: msg.role === 'user' ? 'row-reverse' : 'row',
@@ -408,9 +476,7 @@ const ChatBot = () => {
                         }}>{m}</span>
                       ))}
                       {msg.timestamp && (
-                        <span style={{ fontSize: '10px', color: '#b0b8c4' }}>
-                          {msg.timestamp}
-                        </span>
+                        <span style={{ fontSize: '10px', color: '#b0b8c4' }}>{msg.timestamp}</span>
                       )}
                     </div>
                   </div>
@@ -431,17 +497,14 @@ const ChatBot = () => {
                       </svg>
                     </div>
                     <div style={{
-                      padding: '12px 16px',
-                      borderRadius: '4px 16px 16px 16px',
-                      background: '#ffffff',
-                      border: '1px solid #e5eaf0',
+                      padding: '12px 16px', borderRadius: '4px 16px 16px 16px',
+                      background: '#ffffff', border: '1px solid #e5eaf0',
                       boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
                       display: 'flex', gap: '5px', alignItems: 'center',
                     }}>
                       {[0, 1, 2].map(i => (
                         <div key={i} className={`dot${i + 1}`} style={{
-                          width: '7px', height: '7px', borderRadius: '50%',
-                          background: '#265dad',
+                          width: '7px', height: '7px', borderRadius: '50%', background: '#265dad',
                         }} />
                       ))}
                     </div>
@@ -450,7 +513,7 @@ const ChatBot = () => {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Input */}
+              {/* Input avec micro */}
               <div style={{
                 padding: '12px 14px',
                 borderTop: '1px solid #f1f5f9',
@@ -458,43 +521,71 @@ const ChatBot = () => {
                 display: 'flex', gap: '8px', alignItems: 'center',
                 flexShrink: 0,
               }}>
+                {/* Bouton micro */}
+                <button
+                  className={isListening ? 'mic-active' : ''}
+                  onClick={startVoice}
+                  disabled={loading}
+                  title={isListening ? 'Écoute en cours...' : 'Parler'}
+                  style={{
+                    width: '40px', height: '40px',
+                    borderRadius: '12px',
+                    background: isListening
+                      ? 'linear-gradient(135deg, #cb3128, #a02020)'
+                      : '#f1f5f9',
+                    border: isListening ? 'none' : '1.5px solid #e5eaf0',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0,
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke={isListening ? '#fff' : '#6b7280'} strokeWidth="2">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="23"/>
+                    <line x1="8" y1="23" x2="16" y2="23"/>
+                  </svg>
+                </button>
+
                 <input
                   className="msg-input"
                   type="text"
                   value={input}
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Posez votre question..."
-                  disabled={loading}
+                  placeholder={isListening ? 'Écoute en cours...' : 'Posez votre question...'}
+                  disabled={loading || isListening}
                   style={{
                     flex: 1, padding: '10px 14px',
                     borderRadius: '12px',
                     border: '1.5px solid #e5eaf0',
                     fontSize: '12.5px', outline: 'none',
-                    background: '#f8fbff', color: '#1d2836',
-                    transition: 'all 0.2s',
+                    background: isListening ? '#fff5f5' : '#f8fbff',
+                    color: '#1d2836', transition: 'all 0.2s',
                   }}
                 />
+
                 <button
                   className="send-btn"
                   onClick={sendMessage}
-                  disabled={loading || !input.trim()}
+                  disabled={loading || !input.trim() || isListening}
                   style={{
                     width: '40px', height: '40px',
                     borderRadius: '12px',
-                    background: loading || !input.trim()
+                    background: loading || !input.trim() || isListening
                       ? '#f1f5f9'
                       : 'linear-gradient(135deg, #265dad, #1a3f7a)',
                     border: 'none',
-                    cursor: loading || !input.trim() ? 'not-allowed' : 'pointer',
+                    cursor: loading || !input.trim() || isListening ? 'not-allowed' : 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0,
-                    transition: 'all 0.2s ease',
-                    boxShadow: loading || !input.trim() ? 'none' : '0 4px 12px rgba(38,93,173,0.3)',
+                    flexShrink: 0, transition: 'all 0.2s ease',
+                    boxShadow: loading || !input.trim() || isListening ? 'none' : '0 4px 12px rgba(38,93,173,0.3)',
                   }}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                    stroke={loading || !input.trim() ? '#9ca3af' : '#fff'} strokeWidth="2.5">
+                    stroke={loading || !input.trim() || isListening ? '#9ca3af' : '#fff'} strokeWidth="2.5">
                     <line x1="22" y1="2" x2="11" y2="13"/>
                     <polygon points="22 2 15 22 11 13 2 9 22 2"/>
                   </svg>
@@ -509,7 +600,7 @@ const ChatBot = () => {
               {loadingHistory ? (
                 <div style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  height: '100%', color: '#9ca3af', fontSize: '13px', gap: '8px',
+                  height: '100%', gap: '8px',
                 }}>
                   <div className="dot1" style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#265dad' }} />
                   <div className="dot2" style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#265dad' }} />
@@ -540,13 +631,9 @@ const ChatBot = () => {
                       key={item.id}
                       className="history-item"
                       style={{
-                        background: '#ffffff',
-                        borderRadius: '12px',
-                        padding: '12px 14px',
-                        border: '1px solid #e5eaf0',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s',
-                        position: 'relative',
+                        background: '#ffffff', borderRadius: '12px',
+                        padding: '12px 14px', border: '1px solid #e5eaf0',
+                        cursor: 'pointer', transition: 'all 0.15s', position: 'relative',
                       }}
                       onClick={() => {
                         setMessages(prev => [
@@ -559,18 +646,14 @@ const ChatBot = () => {
                       onMouseEnter={e => (e.currentTarget.style.borderColor = '#265dad')}
                       onMouseLeave={e => (e.currentTarget.style.borderColor = '#e5eaf0')}
                     >
-                      {/* Bouton supprimer */}
                       <button
                         className="delete-btn"
                         onClick={e => { e.stopPropagation(); deleteMessage(item.id) }}
                         title="Supprimer"
                         style={{
-                          position: 'absolute',
-                          top: '10px', right: '10px',
-                          width: '24px', height: '24px',
-                          borderRadius: '6px',
-                          background: '#fef2f2',
-                          border: '1px solid #fecaca',
+                          position: 'absolute', top: '10px', right: '10px',
+                          width: '24px', height: '24px', borderRadius: '6px',
+                          background: '#fef2f2', border: '1px solid #fecaca',
                           cursor: 'pointer',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           opacity: deletingId === item.id ? 1 : 0,
