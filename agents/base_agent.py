@@ -11,7 +11,7 @@ class BaseAgent:
         self.name = name
         self.description = description
 
-    def call_ollama(self, prompt, temperature=0.3, max_tokens=250):
+    def call_ollama(self, prompt, temperature=0.25, max_tokens=500):
         try:
             response = requests.post(OLLAMA_URL, json={
                 "model": MODEL,
@@ -21,19 +21,20 @@ class BaseAgent:
                     "num_predict": max_tokens,
                     "temperature": temperature,
                     "top_p": 0.9,
-                    "num_ctx": 2048,
+                    "num_ctx": 4096,   # increased from 2048
+                    "repeat_penalty": 1.1,
                 }
             }, timeout=180)
-            return response.json().get('response', '')
+            return response.json().get('response', '').strip()
         except requests.exceptions.Timeout:
-            return "Délai dépassé. Reformulez votre question."
+            return "Délai dépassé. Reformulez votre question ou réessayez."
         except requests.exceptions.ConnectionError:
-            return "Ollama non disponible. Vérifiez qu'il est démarré."
+            return "Ollama non disponible. Vérifiez qu'il est démarré sur le serveur."
         except Exception as e:
-            return f"Erreur: {str(e)}"
+            return f"Erreur inattendue: {str(e)}"
 
     def call_ollama_json(self, prompt):
-        response = self.call_ollama(prompt, temperature=0.1, max_tokens=150)
+        response = self.call_ollama(prompt, temperature=0.1, max_tokens=200)
         try:
             response = response.strip()
             if '```json' in response:

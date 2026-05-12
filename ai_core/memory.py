@@ -3,9 +3,9 @@ from chat.models import ChatMessage
 
 class ConversationMemory:
 
-    def __init__(self, user, max_messages=6):
+    def __init__(self, user, max_messages=8):
         self.user = user
-        self.max_messages = max_messages
+        self.max_messages = max_messages  # increased from 6
 
     def get_history(self):
         messages = ChatMessage.objects.filter(
@@ -26,14 +26,16 @@ class ConversationMemory:
         )
 
     def get_context_string(self):
+        """Returns last 6 messages as compact string (150 chars per message)."""
         history = self.get_history()
         if not history:
             return ""
         context = ""
-        for msg in history[-4:]:
+        for msg in history[-6:]:
             role = "User" if msg["role"] == "user" else "AI"
-            context += f"{role}: {msg['content'][:100]}\n"
-        return context
+            content = msg["content"][:150].replace('\n', ' ')
+            context += f"{role}: {content}\n"
+        return context.strip()
 
     def clear(self):
         ChatMessage.objects.filter(user=self.user).delete()
